@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Gymratting",
+  "description": "A comprehensive fitness tracking web application to create workout plans, track live sessions, and view detailed history. Built with React, TypeScript, and Tailwind CSS for a modern, dark-mode experience.",
+  "requestFramePermissions": []
+}
