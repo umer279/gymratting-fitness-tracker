@@ -88,6 +88,43 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [state, dispatch] = useReducer(fitnessReducer, initialState);
 
   useEffect(() => {
+    // --- START: Local Development Mock ---
+    // This block checks if the app is in "development" mode.
+    // If it is, we skip Supabase auth and provide fake user data.
+    if (import.meta.env.MODE === 'development') {
+      console.log("DEV MODE: Bypassing login with mock user.");
+      const mockUser: User = {
+        id: '8a584173-d52d-487e-a1c9-efe13833d135', // A random but valid UUID
+        email: 'local-dev@gymrat.com',
+        app_metadata: { provider: 'email' },
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      };
+      
+      const mockSession: Session = {
+        access_token: 'mock-access-token',
+        refresh_token: 'mock-refresh-token',
+        user: mockUser,
+        token_type: 'bearer',
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      const mockProfile: Profile = {
+        id: mockUser.id,
+        name: 'Local Dev',
+        avatar: '🏆',
+      };
+      
+      dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session: mockSession, profile: mockProfile } });
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return; // Stop the effect here for dev mode
+    }
+    // --- END: Local Development Mock ---
+    
+    // --- START: Production Authentication Logic ---
+    // This code will only run if NOT in development mode.
     const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       let userProfile: Profile | null = null;
@@ -116,6 +153,8 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     });
 
     return () => subscription.unsubscribe();
+    // --- END: Production Authentication Logic ---
+
   }, []);
 
   useEffect(() => {
@@ -125,6 +164,8 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return;
       }
       
+      // In dev mode, this will fetch data for the mock user ID.
+      // If your Supabase RLS is set up, this will return empty arrays, which is fine for UI development.
       const [exercisesRes, plansRes, historyRes] = await Promise.all([
           supabase.from('exercises').select('*').eq('user_id', state.user.id),
           supabase.from('plans').select('*').eq('user_id', state.user.id),
@@ -146,6 +187,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [state.user]);
 
   const updateProfile = async (id: string, name: string, avatar: string) => {
+    // In dev mode, this will just be an optimistic update and the Supabase call will fail silently (or with a console error) if RLS prevents it.
     dispatch({ type: 'UPDATE_PROFILE_LOCALLY', payload: { id, name, avatar }}); // Optimistic update
     const { error } = await supabase.from('profiles').update({ name, avatar }).eq('id', id);
     if (error) console.error("Error updating profile", error);
