@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutHistory, ExerciseType } from '../types';
-import { Calendar, Clock, X, Trash2 } from 'lucide-react';
+import { Calendar, Clock, X, Trash2, RefreshCw } from 'lucide-react';
 
 const HistoryDetailModal: React.FC<{ workout: WorkoutHistory, onClose: () => void }> = ({ workout, onClose }) => {
     const { state, deleteWorkoutFromHistory } = useFitness();
@@ -70,12 +70,34 @@ const HistoryDetailModal: React.FC<{ workout: WorkoutHistory, onClose: () => voi
 }
 
 const HistoryScreen: React.FC = () => {
-  const { state } = useFitness();
+  const { state, refetchUserData } = useFitness();
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutHistory | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+      setIsRefreshing(true);
+      try {
+          await refetchUserData();
+      } catch (error) {
+          console.error("Failed to refresh history:", error);
+      } finally {
+          setIsRefreshing(false);
+      }
+  }
 
   return (
     <div className="p-4 md:p-8">
-      <h1 className="text-3xl md:text-4xl font-bold mb-6">Workout History</h1>
+        <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold">Workout History</h1>
+            <button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                className="flex items-center justify-center py-2 px-4 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <RefreshCw className={`w-5 h-5 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+        </div>
       {selectedWorkout && <HistoryDetailModal workout={selectedWorkout} onClose={() => setSelectedWorkout(null)} />}
       <div className="space-y-4">
         {state.history.length > 0 ? state.history.map((workout) => (

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { WorkoutPlan, PerformedSet, PerformedExercise, PlanExercise, ExerciseType, Exercise } from '../types';
 import { useFitness } from '../context/FitnessContext';
@@ -111,7 +112,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     setSessionNotes(prev => ({...prev, [exerciseId]: text}));
   }
 
-  const handleFinishWorkout = () => {
+  const handleFinishWorkout = async () => {
     const duration = Math.floor((Date.now() - startTime) / 1000);
     // FIX: Add a return type to the map callback to ensure type compatibility with the PerformedExercise type predicate in the filter.
     const performedExercises: PerformedExercise[] = sessionExercises.map((planEx): PerformedExercise | null => {
@@ -150,7 +151,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
         duration,
         exercises: performedExercises,
       };
-      addWorkoutToHistory(newHistoryItem);
+      await addWorkoutToHistory(newHistoryItem);
     }
     onFinish();
   };

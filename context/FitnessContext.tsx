@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
@@ -86,6 +86,7 @@ const FitnessContext = createContext<{
   addWorkoutToHistory: (workout: Omit<WorkoutHistory, 'id' | 'user_id'>) => Promise<void>;
   deleteWorkoutFromHistory: (id: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
+  refetchUserData: () => Promise<void>;
 } | undefined>(undefined);
 
 export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -153,8 +154,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
 
-  useEffect(() => {
-    const fetchUserData = async () => {
+  const fetchUserData = useCallback(async () => {
       if (!state.user) {
         dispatch({ type: 'SET_USER_DATA', payload: { exercises: [], plans: [], history: [] } });
         return;
@@ -176,15 +176,16 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
           plans: plansRes.data || [],
           history: (historyRes.data || []).sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
       }});
-    }
+    }, [state.user]);
 
+  useEffect(() => {
     const env = (import.meta as any).env;
     if (env.MODE === 'development' && env.VITE_MOCK_USER_ENABLED === 'true') {
         // In mock mode, don't fetch data from supabase, just use local state
         return;
     }
     fetchUserData();
-  }, [state.user]);
+  }, [state.user, fetchUserData]);
 
   const isMockMode = () => {
     const env = (import.meta as any).env;
@@ -317,7 +318,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount }}>
+    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount, refetchUserData: fetchUserData }}>
       {children}
     </FitnessContext.Provider>
   );
