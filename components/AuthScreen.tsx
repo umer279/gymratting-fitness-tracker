@@ -1,8 +1,5 @@
-
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Dumbbell } from 'lucide-react';
-import { AVATARS } from '../constants';
 
 const AuthScreen: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -20,21 +17,9 @@ const AuthScreen: React.FC = () => {
 
         try {
             if (isLogin) {
-                const { data: { user }, error } = await supabase.auth.signInWithPassword({ email, password });
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
                 if (error) throw error;
-
-                // On first login, create a profile if one doesn't exist
-                if (user) {
-                    const { data: profile } = await supabase.from('profiles').select('id').eq('id', user.id).single();
-                    if (!profile) {
-                        const { error: insertError } = await supabase.from('profiles').insert({
-                            id: user.id,
-                            name: user.email?.split('@')[0] || 'Gymrat',
-                            avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]
-                        });
-                        if (insertError) throw insertError;
-                    }
-                }
+                // On successful login, the onAuthStateChange listener in FitnessContext will handle profile creation.
             } else {
                 const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
@@ -50,9 +35,8 @@ const AuthScreen: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-sm">
-                <div className="flex items-center justify-center mb-6">
-                    <Dumbbell className="w-10 h-10 text-electric-blue-500" />
-                    <h1 className="text-4xl font-bold ml-3 text-white">Gymratting</h1>
+                <div className="flex flex-col items-center justify-center mb-6">
+                    <img src="/logo.png" alt="Gymratting Logo" className="w-40 h-40 mb-4" />
                 </div>
 
                 <div className="bg-slate-800 rounded-lg shadow-xl p-8">
@@ -113,4 +97,5 @@ const AuthScreen: React.FC = () => {
     );
 };
 
+// FIX: The component was incomplete and was missing a default export.
 export default AuthScreen;

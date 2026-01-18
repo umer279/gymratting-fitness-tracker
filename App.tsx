@@ -81,9 +81,8 @@ const MainApp: React.FC = () => {
       {!activeWorkoutPlan && (
         <>
           <nav className="hidden md:flex md:flex-col md:w-64 bg-slate-950 p-4 border-r border-slate-800">
-            <div className="flex items-center mb-8">
-              <Dumbbell className="w-8 h-8 text-electric-blue-500" />
-              <h1 className="text-2xl font-bold ml-2">Gymratting</h1>
+            <div className="flex items-center justify-center mb-8">
+              <img src="/logo.png" alt="Gymratting Logo" className="w-32 h-32" />
             </div>
             <ul>
               {navItems.map((item) => (
