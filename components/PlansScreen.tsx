@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useRef } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, PlanExercise, Exercise, ExerciseType } from '../types';
@@ -253,7 +255,7 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
 
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 pb-32 md:pb-24">
       <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
         <h1 className="text-3xl md:text-4xl font-bold">{t('plans_title')}</h1>
         <div className="flex w-full md:w-auto items-center justify-end space-x-2">

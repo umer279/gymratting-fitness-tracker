@@ -1,5 +1,7 @@
 
 
+
+
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutHistory, ExerciseType } from '../types';
@@ -90,7 +92,7 @@ const HistoryScreen: React.FC = () => {
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 pb-32 md:pb-24">
         <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl md:text-4xl font-bold">{t('history_title')}</h1>
             <button

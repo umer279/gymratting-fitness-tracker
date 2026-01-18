@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, ExerciseType, PerformedExercise } from '../types';
@@ -34,7 +36,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveScreen, onStartWorkout }
   }
 
   return (
-    <div className="p-4 md:p-8 relative">
+    <div className="p-4 md:p-8 relative pb-32 md:pb-24">
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
         <div className="flex justify-between items-center mb-6">
             <div>

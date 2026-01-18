@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { Exercise, ExerciseCategory, ExerciseType } from '../types';
@@ -44,7 +46,7 @@ const ExercisesScreen: React.FC = () => {
     : state.exercises.filter(ex => ex.category === filter);
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 pb-32 md:pb-24">
       {editingExercise && <ExerciseFormModal exercise={editingExercise} onSave={handleUpdateExercise} onCancel={() => setEditingExercise(null)} />}
       <h1 className="text-3xl md:text-4xl font-bold mb-6">{t('exercises_title')}</h1>
       

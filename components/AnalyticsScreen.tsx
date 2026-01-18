@@ -1,6 +1,9 @@
 
 
 
+
+
+
 import React, { useMemo } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { ExerciseType, ExerciseCategory } from '../types';
@@ -11,12 +14,22 @@ interface AnalyticsScreenProps {
     onOpenAiAssistant: (prompt: string) => void;
 }
 
+// Fix: Define an interface for the analytics data to ensure strong typing.
+interface AnalyticsData {
+    totalWorkouts: number;
+    totalVolume: number;
+    avgDuration: number;
+    categoryDistribution: Record<string, number>;
+    weeklyFrequency: Record<string, number>;
+}
+
 const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) => {
     const { state } = useFitness();
     const { t, tCategory } = useLanguage();
     const isAiEnabled = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
-    const analytics = useMemo(() => {
+    // Fix: Apply the AnalyticsData interface to the useMemo hook.
+    const analytics: AnalyticsData = useMemo(() => {
         const { history, exercises } = state;
 
         if (history.length === 0) {
@@ -123,7 +136,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
     
     if (state.history.length === 0) {
         return (
-            <div className="p-4 md:p-8 text-center">
+            <div className="p-4 md:p-8 text-center pb-32 md:pb-24">
                 <h1 className="text-3xl md:text-4xl font-bold mb-6">{t('analytics_title')}</h1>
                 <div className="py-10 px-6 bg-slate-800 rounded-lg border-2 border-dashed border-slate-700">
                     <p className="text-slate-400">{t('no_analytics_data')}</p>
@@ -133,7 +146,7 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
     }
 
     return (
-        <div className="p-4 md:p-8">
+        <div className="p-4 md:p-8 pb-32 md:pb-24">
             <div className="flex justify-between items-start mb-6">
                 <h1 className="text-3xl md:text-4xl font-bold">{t('analytics_title')}</h1>
             </div>
@@ -171,7 +184,8 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
                     <div className="space-y-2">
                        {Object.entries(analytics.weeklyFrequency).map(([week, count]) => {
                            const maxCount = Math.max(...Object.values(analytics.weeklyFrequency));
-                           const percentage = (count / maxCount) * 100;
+                           // Fix: Handle case where maxCount is 0 or less to avoid division by zero or negative infinity.
+                           const percentage = maxCount > 0 ? (count / maxCount) * 100 : 0;
                            return (
                                <div key={week} className="flex items-center">
                                    <span className="text-xs text-slate-400 w-24">{new Date(week).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
