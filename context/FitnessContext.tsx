@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -111,46 +112,65 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     // --- END: Local Development Mock ---
 
-    // --- START: Production Authentication Logic ---
-    dispatch({ type: 'SET_LOADING', payload: true });
+    const checkSession = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session) {
-        dispatch({ type: 'LOG_OUT' });
-        return;
-      }
+            if (!session) {
+                dispatch({ type: 'LOG_OUT' });
+                return;
+            }
 
-      const { data: profile, error } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            const { data: profile, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which we handle.
-        console.error("Error fetching profile, logging out:", error);
-        await supabase.auth.signOut();
-      } else if (profile) {
-        dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile } });
-      } else {
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: session.user.id,
-            name: session.user.email?.split('@')[0] || 'Gymrat',
-            avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]
-          })
-          .select()
-          .single();
-        
-        if (insertError) {
-          console.error("Error creating profile, logging out:", insertError);
-          await supabase.auth.signOut();
-        } else {
-          dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile: newProfile } });
+            if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+                throw error;
+            }
+
+            if (profile) {
+                dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile } });
+            } else {
+                // No profile found, let's create one.
+                const { data: newProfile, error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                        id: session.user.id,
+                        name: session.user.email?.split('@')[0] || 'Gymrat',
+                        avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)]
+                    })
+                    .select()
+                    .single();
+
+                if (insertError) {
+                    throw insertError;
+                }
+                dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile: newProfile } });
+            }
+        } catch (error) {
+            console.error("Session check failed, signing out.", error);
+            await supabase.auth.signOut();
+            // The onAuthStateChange listener below will then trigger a LOG_OUT dispatch.
         }
-      }
+    };
+
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+            dispatch({ type: 'LOG_OUT' });
+        } else if (event === 'SIGNED_IN') {
+            // When a user signs in (e.g., from the auth form), re-run the check to fetch their profile.
+            checkSession();
+        }
     });
 
     return () => {
-      subscription?.unsubscribe();
+        subscription?.unsubscribe();
     };
-    // --- END: Production Authentication Logic ---
   }, []);
 
 
@@ -165,6 +185,15 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
           supabase.from('plans').select('*').eq('user_id', state.user.id),
           supabase.from('history').select('*').eq('user_id', state.user.id)
       ]);
+
+      const results = [exercisesRes, plansRes, historyRes];
+      for (const res of results) {
+          if (res.error && (res.status === 401 || res.error.message.includes('JWT'))) {
+              console.error('Invalid session detected during data fetch. Signing out.');
+              await supabase.auth.signOut();
+              return;
+          }
+      }
 
       if (exercisesRes.error || plansRes.error || historyRes.error) {
           console.error('Error fetching user data', exercisesRes.error, plansRes.error, historyRes.error);
