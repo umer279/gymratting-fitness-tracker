@@ -1,8 +1,10 @@
 
+
 import React, { useMemo } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { ExerciseType, ExerciseCategory } from '../types';
 import { BarChart, PieChart, Weight, Sparkles, Activity } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AnalyticsScreenProps {
     onOpenAiAssistant: (prompt: string) => void;
@@ -10,6 +12,7 @@ interface AnalyticsScreenProps {
 
 const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) => {
     const { state } = useFitness();
+    const { t, tCategory } = useLanguage();
     const isAiEnabled = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
     const analytics = useMemo(() => {
@@ -80,24 +83,27 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
     }, [analytics.categoryDistribution]);
 
     const handleAiAnalysis = () => {
-        const prompt = `Please provide a detailed analysis of my workout data. Give me insights on my consistency, volume, muscle group balance, and suggest areas for improvement. Be encouraging but also direct about where I can do better.
+        const translatedCategoryDistribution = Object.entries(analytics.categoryDistribution).reduce((acc, [key, value]) => {
+            acc[tCategory(key as ExerciseCategory)] = value;
+            return acc;
+        }, {} as Record<string, number>);
 
-My Analytics Data:
-- Total Workouts: ${analytics.totalWorkouts}
-- Total Volume Lifted: ${analytics.totalVolume.toLocaleString()} kg
-- Average Workout Duration: ${analytics.avgDuration} minutes
-- Muscle Group Focus (by exercises logged): ${JSON.stringify(analytics.categoryDistribution)}
-- Recent Weekly Workouts (last 4 weeks): ${JSON.stringify(analytics.weeklyFrequency)}
-`;
+        const prompt = t('ai_analysis_prompt', {
+            totalWorkouts: analytics.totalWorkouts,
+            totalVolume: analytics.totalVolume.toLocaleString(),
+            avgDuration: analytics.avgDuration,
+            categoryDistribution: JSON.stringify(translatedCategoryDistribution),
+            weeklyFrequency: JSON.stringify(analytics.weeklyFrequency)
+        });
         onOpenAiAssistant(prompt);
     };
     
     if (state.history.length === 0) {
         return (
             <div className="p-4 md:p-8 text-center">
-                <h1 className="text-3xl md:text-4xl font-bold mb-6">Workout Analytics</h1>
+                <h1 className="text-3xl md:text-4xl font-bold mb-6">{t('analytics_title')}</h1>
                 <div className="py-10 px-6 bg-slate-800 rounded-lg border-2 border-dashed border-slate-700">
-                    <p className="text-slate-400">Not enough data to display analytics. Complete a few workouts to see your progress here!</p>
+                    <p className="text-slate-400">{t('no_analytics_data')}</p>
                 </div>
             </div>
         )
@@ -106,10 +112,10 @@ My Analytics Data:
     return (
         <div className="p-4 md:p-8">
             <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl md:text-4xl font-bold">Workout Analytics</h1>
+                <h1 className="text-3xl md:text-4xl font-bold">{t('analytics_title')}</h1>
                  {isAiEnabled && (
                     <button onClick={handleAiAnalysis} className="flex items-center justify-center py-2 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors">
-                        <Sparkles className="w-5 h-5 mr-2" /> Get AI Analysis
+                        <Sparkles className="w-5 h-5 mr-2" /> {t('get_ai_analysis_button')}
                     </button>
                 )}
             </div>
@@ -118,21 +124,21 @@ My Analytics Data:
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                     <div className="flex items-center text-slate-400 mb-2">
                         <Activity size={16} className="mr-2"/>
-                        <h3 className="text-sm font-semibold">Total Workouts</h3>
+                        <h3 className="text-sm font-semibold">{t('total_workouts_label')}</h3>
                     </div>
                     <p className="text-4xl font-bold text-white">{analytics.totalWorkouts}</p>
                 </div>
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                     <div className="flex items-center text-slate-400 mb-2">
                         <Weight size={16} className="mr-2"/>
-                        <h3 className="text-sm font-semibold">Total Volume</h3>
+                        <h3 className="text-sm font-semibold">{t('total_volume_label')}</h3>
                     </div>
                     <p className="text-4xl font-bold text-white">{analytics.totalVolume.toLocaleString()}<span className="text-xl text-slate-400"> kg</span></p>
                 </div>
                  <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                     <div className="flex items-center text-slate-400 mb-2">
                         <BarChart size={16} className="mr-2"/>
-                        <h3 className="text-sm font-semibold">Avg. Duration</h3>
+                        <h3 className="text-sm font-semibold">{t('avg_duration_label')}</h3>
                     </div>
                     <p className="text-4xl font-bold text-white">{analytics.avgDuration}<span className="text-xl text-slate-400"> min</span></p>
                 </div>
@@ -140,8 +146,8 @@ My Analytics Data:
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                    <h3 className="text-xl font-bold mb-4 flex items-center"><BarChart size={20} className="mr-3 text-electric-blue-400"/>Workout Frequency</h3>
-                    <p className="text-sm text-slate-400 mb-4">Workouts logged in the last 4 weeks.</p>
+                    <h3 className="text-xl font-bold mb-4 flex items-center"><BarChart size={20} className="mr-3 text-electric-blue-400"/>{t('workout_frequency_title')}</h3>
+                    <p className="text-sm text-slate-400 mb-4">{t('workout_frequency_subtitle')}</p>
                     <div className="space-y-2">
                        {Object.entries(analytics.weeklyFrequency).map(([week, count]) => {
                            const maxCount = Math.max(...Object.values(analytics.weeklyFrequency));
@@ -160,8 +166,8 @@ My Analytics Data:
                 </div>
 
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
-                    <h3 className="text-xl font-bold mb-4 flex items-center"><PieChart size={20} className="mr-3 text-electric-blue-400"/>Muscle Group Distribution</h3>
-                     <p className="text-sm text-slate-400 mb-4">Breakdown by number of exercises performed.</p>
+                    <h3 className="text-xl font-bold mb-4 flex items-center"><PieChart size={20} className="mr-3 text-electric-blue-400"/>{t('muscle_group_distribution_title')}</h3>
+                     <p className="text-sm text-slate-400 mb-4">{t('muscle_group_distribution_subtitle')}</p>
                     <div className="space-y-3">
                         {sortedCategories.map(([category, count]) => {
                            const totalExercises = Object.values(analytics.categoryDistribution).reduce((a,b)=>a+b, 0);
@@ -169,7 +175,7 @@ My Analytics Data:
                             return (
                                 <div key={category}>
                                     <div className="flex justify-between text-sm mb-1">
-                                        <span className="font-semibold text-slate-300">{category}</span>
+                                        <span className="font-semibold text-slate-300">{tCategory(category as ExerciseCategory)}</span>
                                         <span className="text-slate-400">{Math.round(percentage)}%</span>
                                     </div>
                                     <div className="w-full bg-slate-700 rounded-full h-2.5">

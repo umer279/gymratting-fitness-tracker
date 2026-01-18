@@ -1,12 +1,15 @@
+
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { Exercise, ExerciseCategory, ExerciseType } from '../types';
 import { EXERCISE_CATEGORIES } from '../constants';
 import { Plus, Tag, Zap, Weight, Trash2, Edit } from 'lucide-react';
 import ExerciseFormModal from './ExerciseFormModal';
+import { useLanguage } from '../context/LanguageContext';
 
 const ExercisesScreen: React.FC = () => {
   const { state, addExercise, updateExercise, deleteExercise } = useFitness();
+  const { t, tCategory } = useLanguage();
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseCategory, setNewExerciseCategory] = useState<ExerciseCategory>(ExerciseCategory.CHEST);
   const [newExerciseType, setNewExerciseType] = useState<ExerciseType>(ExerciseType.STRENGTH);
@@ -31,7 +34,7 @@ const ExercisesScreen: React.FC = () => {
   }
   
   const handleDeleteExercise = (id: string) => {
-      if(window.confirm("Are you sure you want to delete this exercise? This might affect existing workout plans.")) {
+      if(window.confirm(t('delete_exercise_confirm'))) {
           deleteExercise(id);
       }
   }
@@ -43,39 +46,39 @@ const ExercisesScreen: React.FC = () => {
   return (
     <div className="p-4 md:p-8">
       {editingExercise && <ExerciseFormModal exercise={editingExercise} onSave={handleUpdateExercise} onCancel={() => setEditingExercise(null)} />}
-      <h1 className="text-3xl md:text-4xl font-bold mb-6">Exercise Library</h1>
+      <h1 className="text-3xl md:text-4xl font-bold mb-6">{t('exercises_title')}</h1>
       
       <div className="bg-slate-800 p-6 rounded-lg mb-8 shadow-md border border-slate-700">
-        <h2 className="text-xl font-semibold mb-4">Add New Exercise</h2>
+        <h2 className="text-xl font-semibold mb-4">{t('add_new_exercise_title')}</h2>
         <form onSubmit={handleAddExercise} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Exercise Name</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">{t('exercise_name_label')}</label>
                     <input
                         type="text"
                         value={newExerciseName}
                         onChange={(e) => setNewExerciseName(e.target.value)}
-                        placeholder="e.g., Bench Press"
+                        placeholder={t('exercise_name_placeholder')}
                         className="w-full bg-slate-700 border-slate-600 rounded-md p-3 text-white placeholder-slate-400 focus:ring-electric-blue-500 focus:border-electric-blue-500"
                         required
                     />
                 </div>
                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">{t('category_label')}</label>
                     <select
                         value={newExerciseCategory}
                         onChange={(e) => setNewExerciseCategory(e.target.value as ExerciseCategory)}
                         className="w-full bg-slate-700 border-slate-600 rounded-md p-3 text-white focus:ring-electric-blue-500 focus:border-electric-blue-500"
                     >
-                        {EXERCISE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        {EXERCISE_CATEGORIES.map(cat => <option key={cat} value={cat}>{tCategory(cat)}</option>)}
                     </select>
                 </div>
             </div>
             <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Exercise Type</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">{t('exercise_type_label')}</label>
                 <div className="flex rounded-lg bg-slate-900 p-1 w-full md:w-auto">
-                    <button type="button" onClick={() => setNewExerciseType(ExerciseType.STRENGTH)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${newExerciseType === ExerciseType.STRENGTH ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Weight className="w-4 h-4 mr-2" />Strength</button>
-                    <button type="button" onClick={() => setNewExerciseType(ExerciseType.CARDIO)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${newExerciseType === ExerciseType.CARDIO ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Zap className="w-4 h-4 mr-2" />Cardio</button>
+                    <button type="button" onClick={() => setNewExerciseType(ExerciseType.STRENGTH)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${newExerciseType === ExerciseType.STRENGTH ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Weight className="w-4 h-4 mr-2" />{t('strength_type')}</button>
+                    <button type="button" onClick={() => setNewExerciseType(ExerciseType.CARDIO)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${newExerciseType === ExerciseType.CARDIO ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Zap className="w-4 h-4 mr-2" />{t('cardio_type')}</button>
                 </div>
             </div>
             <button
@@ -83,7 +86,7 @@ const ExercisesScreen: React.FC = () => {
                 className="w-full flex items-center justify-center py-3 px-5 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors"
             >
                 <Plus className="w-5 h-5 mr-2" />
-                Add Exercise
+                {t('add_exercise_button')}
             </button>
         </form>
       </div>
@@ -91,9 +94,9 @@ const ExercisesScreen: React.FC = () => {
       <div>
         <div className="mb-4">
           <div className="flex flex-wrap gap-2">
-              <button onClick={() => setFilter('ALL')} className={`px-3 py-1 text-sm rounded-full transition-colors ${filter === 'ALL' ? 'bg-electric-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>All</button>
+              <button onClick={() => setFilter('ALL')} className={`px-3 py-1 text-sm rounded-full transition-colors ${filter === 'ALL' ? 'bg-electric-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{t('filter_all')}</button>
             {EXERCISE_CATEGORIES.map(cat => (
-              <button key={cat} onClick={() => setFilter(cat)} className={`px-3 py-1 text-sm rounded-full transition-colors ${filter === cat ? 'bg-electric-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{cat}</button>
+              <button key={cat} onClick={() => setFilter(cat)} className={`px-3 py-1 text-sm rounded-full transition-colors ${filter === cat ? 'bg-electric-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600'}`}>{tCategory(cat)}</button>
             ))}
           </div>
         </div>
@@ -104,9 +107,9 @@ const ExercisesScreen: React.FC = () => {
               <div className="flex items-center mt-2 text-xs space-x-2">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${ex.exerciseType === ExerciseType.STRENGTH ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}`}>
                     {ex.exerciseType === ExerciseType.STRENGTH ? <Weight className="w-3 h-3 mr-1" /> : <Zap className="w-3 h-3 mr-1" />}
-                    {ex.exerciseType}
+                    {t(ex.exerciseType as any)}
                   </span>
-                  <span className="flex items-center text-slate-400"><Tag className="w-3 h-3 mr-1" />{ex.category}</span>
+                  <span className="flex items-center text-slate-400"><Tag className="w-3 h-3 mr-1" />{tCategory(ex.category)}</span>
               </div>
               <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => setEditingExercise(ex)} className="p-1.5 bg-slate-700/50 rounded-full text-slate-400 hover:bg-blue-500 hover:text-white transition-colors"><Edit size={14}/></button>
@@ -116,13 +119,13 @@ const ExercisesScreen: React.FC = () => {
           ))}
            {state.exercises.length > 0 && filteredExercises.length === 0 && (
             <div className="sm:col-span-2 md:col-span-3 lg:col-span-4 text-center py-10">
-                <p className="text-slate-400">No exercises found for this category.</p>
+                <p className="text-slate-400">{t('no_exercises_in_category')}</p>
             </div>
         )}
         </div>
         {state.exercises.length === 0 && (
              <div className="text-center py-10 px-6 bg-slate-800 rounded-lg border-2 border-dashed border-slate-700">
-                <p className="text-slate-400">Your exercise library is empty. Add some exercises to get started!</p>
+                <p className="text-slate-400">{t('no_exercises_library')}</p>
             </div>
         )}
       </div>

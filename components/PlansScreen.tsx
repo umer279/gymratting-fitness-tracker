@@ -1,9 +1,12 @@
+
 import React, { useState, useRef } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, PlanExercise, Exercise, ExerciseType } from '../types';
 import { Plus, Play, Trash2, Edit, Save, X, Dumbbell, Download, Upload } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 'id' | 'user_id'> | WorkoutPlan) => void; onCancel: () => void; exercises: Exercise[] }> = ({ plan, onSave, onCancel, exercises }) => {
+  const { t, tCategory } = useLanguage();
   const [name, setName] = useState(plan?.name || '');
   const [planExercises, setPlanExercises] = useState<PlanExercise[]>(plan?.exercises || []);
   
@@ -63,9 +66,9 @@ const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
         <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <h2 className="text-2xl font-bold mb-4 text-white">{plan ? 'Edit' : 'Create'} Plan</h2>
+            <h2 className="text-2xl font-bold mb-4 text-white">{plan ? t('plan_form_edit_title') : t('plan_form_create_title')}</h2>
             <form onSubmit={handleSubmit} className="flex-grow overflow-y-auto pr-2 -mr-2">
-                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Plan Name (e.g., Push Day)" className="w-full bg-slate-700 border-slate-600 rounded-md p-2 mb-4 text-white placeholder-slate-400" required />
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('plan_name_placeholder')} className="w-full bg-slate-700 border-slate-600 rounded-md p-2 mb-4 text-white placeholder-slate-400" required />
                 <div className="space-y-4">
                     {planExercises.map((pe, index) => {
                         const exercise = exercises.find(ex => ex.id === pe.exerciseId);
@@ -73,47 +76,47 @@ const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 
                         <div key={index} className="bg-slate-900 p-4 rounded-lg border border-slate-700 relative">
                            <button type="button" onClick={() => handleRemoveExercise(index)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><X size={18}/></button>
                             <select value={pe.exerciseId} onChange={(e) => handleExerciseChange(index, 'exerciseId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mb-2">
-                                {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({ex.exerciseType})</option>)}
+                                {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({t(ex.exerciseType as any)})</option>)}
                             </select>
                             
                             {exercise?.exerciseType === ExerciseType.STRENGTH && (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-                                    <input type="number" value={pe.numberOfSets || ''} onChange={e => handleExerciseChange(index, 'numberOfSets', parseInt(e.target.value))} placeholder="Sets" className="w-full bg-slate-700 p-2 rounded-md" />
-                                    <input type="text" value={pe.repRange || ''} onChange={e => handleExerciseChange(index, 'repRange', e.target.value)} placeholder="Rep Range" className="w-full bg-slate-700 p-2 rounded-md" />
-                                    <input type="number" value={pe.targetWeight || ''} onChange={e => handleExerciseChange(index, 'targetWeight', parseInt(e.target.value))} placeholder="Target kg" className="w-full bg-slate-700 p-2 rounded-md" />
+                                    <input type="number" value={pe.numberOfSets || ''} onChange={e => handleExerciseChange(index, 'numberOfSets', parseInt(e.target.value))} placeholder={t('plan_exercise_sets_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
+                                    <input type="text" value={pe.repRange || ''} onChange={e => handleExerciseChange(index, 'repRange', e.target.value)} placeholder={t('plan_exercise_reps_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
+                                    <input type="number" value={pe.targetWeight || ''} onChange={e => handleExerciseChange(index, 'targetWeight', parseInt(e.target.value))} placeholder={t('plan_exercise_target_weight_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                                 </div>
                             )}
 
                             {exercise?.exerciseType === ExerciseType.CARDIO && (
                                 <div className="grid grid-cols-1 gap-2 mb-2">
-                                     <input type="number" value={(pe.duration || 0) / 60} onChange={e => handleExerciseChange(index, 'duration', parseInt(e.target.value) * 60)} placeholder="Duration (min)" className="w-full bg-slate-700 p-2 rounded-md" />
+                                     <input type="number" value={(pe.duration || 0) / 60} onChange={e => handleExerciseChange(index, 'duration', parseInt(e.target.value) * 60)} placeholder={t('plan_exercise_duration_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                                 </div>
                             )}
 
-                            <textarea value={pe.notes || ''} onChange={e => handleExerciseChange(index, 'notes', e.target.value)} placeholder={exercise?.exerciseType === 'Cardio' ? "Intensity, Incline, etc." : "Notes (e.g., focus on form)"} rows={2} className="w-full bg-slate-700 p-2 rounded-md" />
+                            <textarea value={pe.notes || ''} onChange={e => handleExerciseChange(index, 'notes', e.target.value)} placeholder={exercise?.exerciseType === 'Cardio' ? t('plan_exercise_cardio_notes_placeholder') : t('plan_exercise_strength_notes_placeholder')} rows={2} className="w-full bg-slate-700 p-2 rounded-md" />
                         </div>
                     )})}
                 </div>
                 <button type="button" onClick={handleAddExercise} className="mt-4 w-full flex items-center justify-center py-2 px-4 border-2 border-dashed border-slate-600 text-slate-400 rounded-lg hover:bg-slate-700 hover:text-white">
-                    <Dumbbell className="w-4 h-4 mr-2" /> Add Exercise
+                    <Dumbbell className="w-4 h-4 mr-2" /> {t('add_exercise_button')}
                 </button>
             </form>
              <div className="flex justify-end space-x-4 mt-6 flex-shrink-0">
-                <button type="button" onClick={onCancel} className="px-4 py-2 bg-slate-600 rounded-lg hover:bg-slate-500">Cancel</button>
-                <button type="submit" onClick={handleSubmit} className="px-4 py-2 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 flex items-center"><Save className="w-4 h-4 mr-2"/> Save Plan</button>
+                <button type="button" onClick={onCancel} className="px-4 py-2 bg-slate-600 rounded-lg hover:bg-slate-500">{t('cancel_button')}</button>
+                <button type="submit" onClick={handleSubmit} className="px-4 py-2 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 flex items-center"><Save className="w-4 h-4 mr-2"/> {t('save_plan_button')}</button>
             </div>
         </div>
     </div>
   )
 };
 
-// FIX: Define PlansScreenProps interface for the component props.
 interface PlansScreenProps {
   onStartWorkout: (plan: WorkoutPlan) => void;
 }
 
 const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
   const { state, addPlan, updatePlan, deletePlan, addExercise } = useFitness();
+  const { t } = useLanguage();
   const [isCreating, setIsCreating] = useState(false);
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -129,12 +132,12 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
   };
 
   const handleDeletePlan = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this plan?')) {
+    if (window.confirm(t('delete_plan_confirm'))) {
         deletePlan(id);
     }
   }
 
-  const getExerciseName = (id: string) => state.exercises.find(e => e.id === id)?.name || 'Unknown Exercise';
+  const getExerciseName = (id: string) => state.exercises.find(e => e.id === id)?.name || t('unknown_exercise');
 
   const handleExportPlan = (planId: string) => {
     const plan = state.plans.find(p => p.id === planId);
@@ -235,11 +238,12 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
         }
 
         await addPlan({ name: newPlanName, exercises: resolvedPlanExercises });
-        alert(`Plan "${newPlanName}" imported successfully!`);
+        alert(t('import_plan_success', { planName: newPlanName }));
 
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
         console.error("Failed to import plan:", error);
-        alert(`Error importing plan: ${error instanceof Error ? error.message : "Unknown error"}`);
+        alert(t('import_plan_error', { error: errorMessage }));
     } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -249,14 +253,14 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
   return (
     <div className="p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold">Workout Plans</h1>
+        <h1 className="text-3xl md:text-4xl font-bold">{t('plans_title')}</h1>
         <div className="flex items-center space-x-2">
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
             <button onClick={handleImportClick} className="flex items-center justify-center py-2 px-4 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-600 transition-colors">
-                <Upload className="w-5 h-5 mr-2" /> Import
+                <Upload className="w-5 h-5 mr-2" /> {t('import_button')}
             </button>
             <button onClick={() => setIsCreating(true)} className="flex items-center justify-center py-2 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors">
-              <Plus className="w-5 h-5 mr-2" /> Create Plan
+              <Plus className="w-5 h-5 mr-2" /> {t('create_plan_button')}
             </button>
         </div>
       </div>
@@ -282,7 +286,7 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
             </div>
             <div className="flex items-center space-x-2">
                 <button onClick={() => onStartWorkout(plan)} className="flex-1 flex items-center justify-center py-2 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors">
-                    <Play className="w-4 h-4 mr-2" /> Start
+                    <Play className="w-4 h-4 mr-2" /> {t('start_button')}
                 </button>
                  <button onClick={() => handleExportPlan(plan.id)} className="p-2 bg-slate-700 rounded-lg hover:bg-slate-600"><Download size={18} /></button>
                  <button onClick={() => setEditingPlan(plan)} className="p-2 bg-slate-700 rounded-lg hover:bg-slate-600"><Edit size={18} /></button>
@@ -292,7 +296,7 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
         ))}
         {state.plans.length === 0 && (
             <div className="md:col-span-3 text-center py-10 px-6 bg-slate-800 rounded-lg border-2 border-dashed border-slate-700">
-                <p className="text-slate-400">No workout plans yet. Create your first one to get started!</p>
+                <p className="text-slate-400">{t('no_plans_yet')}</p>
             </div>
         )}
       </div>

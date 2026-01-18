@@ -1,9 +1,11 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { WorkoutPlan, PerformedSet, PerformedExercise, PlanExercise, ExerciseType, Exercise } from '../types';
 import { useFitness } from '../context/FitnessContext';
 import { ChevronLeft, ChevronRight, Check, History, Info, Edit, ArrowUp, ArrowDown, Replace, Trash2, X } from 'lucide-react';
 import ExerciseSelectionModal from './ExerciseSelectionModal';
+import { useLanguage } from '../context/LanguageContext';
 
 interface WorkoutSessionProps {
   plan: WorkoutPlan;
@@ -21,13 +23,14 @@ const EditSessionModal: React.FC<{
     onClose: () => void;
 }> = ({ exercises, onReorder, onRemove, onStartReplace, onClose }) => {
     const { state } = useFitness();
-    const getExerciseName = (id: string) => state.exercises.find(e => e.id === id)?.name || 'Unknown Exercise';
+    const { t } = useLanguage();
+    const getExerciseName = (id: string) => state.exercises.find(e => e.id === id)?.name || t('unknown_exercise');
 
     return (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold">Edit Workout</h2>
+                    <h2 className="text-2xl font-bold">{t('edit_session_title')}</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
                 </div>
                 <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-2">
@@ -50,6 +53,7 @@ const EditSessionModal: React.FC<{
 
 const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   const { state, addWorkoutToHistory } = useFitness();
+  const { t, tCategory } = useLanguage();
   const [sessionExercises, setSessionExercises] = useState<PlanExercise[]>(plan.exercises);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [strengthSessionData, setStrengthSessionData] = useState<Record<string, StrengthSessionSet[]>>({});
@@ -104,7 +108,6 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   };
   
   const handleCardioChange = (exerciseId: string, field: keyof CardioSessionData, value: string) => {
-    // FIX: Provide default values for cardio session data to ensure the object shape matches CardioSessionData type.
     setCardioSessionData({ ...cardioSessionData, [exerciseId]: { ...(cardioSessionData[exerciseId] || { minutes: '', seconds: '', distance: '' }), [field]: value }});
   }
 
@@ -114,7 +117,6 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
 
   const handleFinishWorkout = async () => {
     const duration = Math.floor((Date.now() - startTime) / 1000);
-    // FIX: Add a return type to the map callback to ensure type compatibility with the PerformedExercise type predicate in the filter.
     const performedExercises: PerformedExercise[] = sessionExercises.map((planEx): PerformedExercise | null => {
         const exercise = state.exercises.find(ex => ex.id === planEx.exerciseId);
         const notes = sessionNotes[planEx.exerciseId];
@@ -169,150 +171,192 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     const [movedItem] = newList.splice(fromIndex, 1);
     newList.splice(toIndex, 0, movedItem);
     setSessionExercises(newList);
-  };
-
-  const handleRemoveExercise = (index: number) => {
-    const newList = sessionExercises.filter((_, i) => i !== index);
-    setSessionExercises(newList);
-    if (currentExerciseIndex >= newList.length && newList.length > 0) {
-        setCurrentExerciseIndex(newList.length - 1);
-    } else if (newList.length === 0) {
-        // Handle empty workout - maybe show a message or end it.
-        alert("Workout is empty!");
-        onFinish();
+    if (currentExerciseIndex === fromIndex) {
+        setCurrentExerciseIndex(toIndex);
+    } else if (currentExerciseIndex > fromIndex && currentExerciseIndex <= toIndex) {
+        setCurrentExerciseIndex(currentExerciseIndex - 1);
+    } else if (currentExerciseIndex < fromIndex && currentExerciseIndex >= toIndex) {
+        setCurrentExerciseIndex(currentExerciseIndex + 1);
     }
   };
 
-  const handleStartReplace = (index: number) => {
-      setExerciseToReplaceIndex(index);
-      setIsEditingSession(false);
-      setIsSelectingExercise(true);
+  const handleRemoveExercise = (indexToRemove: number) => {
+    setSessionExercises(prev => prev.filter((_, i) => i !== indexToRemove));
+    if (currentExerciseIndex >= indexToRemove) {
+        setCurrentExerciseIndex(prev => Math.max(0, prev - 1));
+    }
   };
-
-  const handleConfirmReplace = (newExerciseId: string) => {
-    if (exerciseToReplaceIndex === null) return;
-    const newExercise = state.exercises.find(e => e.id === newExerciseId);
-    if (!newExercise) return;
-    
-    const newList = [...sessionExercises];
-    const oldPlanExercise = newList[exerciseToReplaceIndex];
-    const newPlanExercise: PlanExercise = { exerciseId: newExercise.id };
-    
-    if (newExercise.exerciseType === oldPlanExercise.notes) {
-       Object.assign(newPlanExercise, oldPlanExercise, { exerciseId: newExercise.id });
-    } else { // Different type, reset details
-        if(newExercise.exerciseType === ExerciseType.STRENGTH) {
-            newPlanExercise.numberOfSets = 3; newPlanExercise.repRange = '8-12';
+  
+  const handleStartReplaceExercise = (index: number) => {
+    setExerciseToReplaceIndex(index);
+    setIsEditingSession(false);
+    setIsSelectingExercise(true);
+  };
+  
+  const handleSelectReplacement = (newExerciseId: string) => {
+    if (exerciseToReplaceIndex !== null) {
+      const exercise = state.exercises.find(e => e.id === newExerciseId);
+      if (exercise) {
+        const newPlanExercise: PlanExercise = { exerciseId: newExerciseId };
+        if (exercise.exerciseType === ExerciseType.STRENGTH) {
+          newPlanExercise.numberOfSets = 3;
+          newPlanExercise.repRange = '8-12';
         } else {
-            newPlanExercise.duration = 600;
+          newPlanExercise.duration = 600;
         }
+        
+        setSessionExercises(prev => {
+          const newList = [...prev];
+          newList[exerciseToReplaceIndex] = newPlanExercise;
+          return newList;
+        });
+      }
     }
-    
-    newList[exerciseToReplaceIndex] = newPlanExercise;
-    setSessionExercises(newList);
     setIsSelectingExercise(false);
     setExerciseToReplaceIndex(null);
   };
 
-  if (sessionExercises.length === 0) {
-    return (
-        <div className="p-4 md:p-8 max-w-3xl mx-auto h-screen flex flex-col items-center justify-center">
-            <h1 className="text-2xl font-bold mb-4">Workout Finished</h1>
-            <button onClick={onFinish} className="px-6 py-3 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500">
-                Go to History
-            </button>
-        </div>
-    );
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [startTime]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+    const minutes = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  };
+  
+  if (!currentExercise || !currentPlanExercise) {
+    return <div className="p-4 text-center">{t('loading')}</div>;
   }
 
-  if (!currentExercise) return <div className="p-4 text-center">Loading exercise...</div>;
-
+  const currentSets = strengthSessionData[currentExercise.id] || [];
+  const currentCardio = cardioSessionData[currentExercise.id] || { minutes: '', seconds: '', distance: '' };
+  
   return (
-    <div className="p-4 md:p-8 max-w-3xl mx-auto h-screen flex flex-col">
-       {isEditingSession && <EditSessionModal exercises={sessionExercises} onReorder={handleReorderExercise} onRemove={handleRemoveExercise} onStartReplace={handleStartReplace} onClose={() => setIsEditingSession(false)} />}
-       {isSelectingExercise && <ExerciseSelectionModal onSelect={handleConfirmReplace} onCancel={() => setIsSelectingExercise(false)} />}
+    <div className="min-h-screen bg-slate-950 flex flex-col p-4 md:p-6 text-white">
+      {isEditingSession && (
+        <EditSessionModal
+            exercises={sessionExercises}
+            onReorder={handleReorderExercise}
+            onRemove={handleRemoveExercise}
+            onStartReplace={handleStartReplaceExercise}
+            onClose={() => setIsEditingSession(false)}
+        />
+      )}
+      {isSelectingExercise && (
+        <ExerciseSelectionModal
+            onSelect={handleSelectReplacement}
+            onCancel={() => { setIsSelectingExercise(false); setExerciseToReplaceIndex(null); }}
+        />
+      )}
 
-      <div className="flex-shrink-0">
-        <div className="flex justify-between items-center mb-4">
-            <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-electric-blue-400">{plan.name}</h1>
-                <p className="text-slate-400">Exercise {currentExerciseIndex + 1} of {sessionExercises.length}</p>
-            </div>
-            <button onClick={() => setIsEditingSession(true)} className="flex items-center text-sm py-2 px-3 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors">
-                <Edit className="w-4 h-4 mr-2" /> Edit Workout
-            </button>
+      {/* Header */}
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
+        <div>
+            <h1 className="text-2xl md:text-3xl font-bold truncate">{plan.name}</h1>
+            <p className="text-slate-400 font-mono text-lg">{formatTime(elapsedTime)}</p>
         </div>
+        <button onClick={handleFinishWorkout} className="px-4 py-2 bg-red-600 font-bold rounded-lg hover:bg-red-500 transition-colors">{t('workout_session_finish_button')}</button>
+      </div>
 
-        <h2 className="text-2xl md:text-3xl font-semibold mb-2">{currentExercise.name}</h2>
-        {currentExercise.exerciseType === ExerciseType.STRENGTH && <p className="text-slate-300 mb-1"><span className="font-semibold">Target:</span> {currentPlanExercise.repRange} reps @ {currentPlanExercise.targetWeight || 'bodyweight'}{currentPlanExercise.targetWeight ? 'kg' : ''}</p>}
-        {currentExercise.exerciseType === ExerciseType.CARDIO && <p className="text-slate-300 mb-1"><span className="font-semibold">Target:</span> {formatDuration(currentPlanExercise.duration || 0)}</p>}
-        {currentPlanExercise.notes && <p className="text-slate-400 italic mb-4"><Info className="inline w-4 h-4 mr-1" />{currentPlanExercise.notes}</p>}
+      {/* Progress Bar */}
+      <div className="w-full bg-slate-700 rounded-full h-2.5 mb-4">
+        <div className="bg-electric-blue-600 h-2.5 rounded-full" style={{ width: `${((currentExerciseIndex + 1) / sessionExercises.length) * 100}%` }}></div>
       </div>
       
-      <div className="flex-grow overflow-y-auto pr-2 -mr-2 space-y-4">
-        {currentExercise.exerciseType === ExerciseType.STRENGTH && (
-            (strengthSessionData[currentExercise.id] || []).map((_, setIndex) => (
-              <div key={setIndex} className="bg-slate-800 p-4 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-lg font-bold text-white">Set {setIndex + 1}</span>
-                  <div className="text-xs text-slate-400 flex items-center"><History className="w-4 h-4 mr-1" /><span>Previous: {previousPerformance?.sets?.[setIndex] ? `${previousPerformance.sets[setIndex].weight}kg x ${previousPerformance.sets[setIndex].reps}` : 'N/A'}</span></div>
-                </div>
-                <div className="flex space-x-4">
-                  <div className="flex-1">
-                    <label htmlFor={`weight-${setIndex}`} className="block text-sm font-medium text-slate-300 mb-1">Weight (kg)</label>
-                    <input id={`weight-${setIndex}`} type="number" placeholder="0" value={strengthSessionData[currentExercise.id]?.[setIndex]?.weight || ''} onChange={(e) => handleStrengthChange(currentExercise.id, setIndex, 'weight', e.target.value)} className="w-full bg-slate-700 border-slate-600 rounded-md p-2 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor={`reps-${setIndex}`} className="block text-sm font-medium text-slate-300 mb-1">Reps</label>
-                    <input id={`reps-${setIndex}`} type="number" placeholder="0" value={strengthSessionData[currentExercise.id]?.[setIndex]?.reps || ''} onChange={(e) => handleStrengthChange(currentExercise.id, setIndex, 'reps', e.target.value)} className="w-full bg-slate-700 border-slate-600 rounded-md p-2 text-white" />
-                  </div>
-                </div>
+      <div className="flex-grow overflow-y-auto pr-2 -mr-2">
+        {/* Exercise Info */}
+        <div className="text-center mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-electric-blue-400">{currentExercise.name}</h2>
+            <p className="text-slate-400">{tCategory(currentExercise.category)}</p>
+        </div>
+        
+        {/* Previous Performance */}
+        {previousPerformance && (
+          <div className="bg-slate-800 p-3 rounded-lg mb-4 border border-slate-700">
+            <h3 className="flex items-center text-sm font-semibold text-slate-300 mb-2"><History size={14} className="mr-2"/> {t('workout_session_previous_performance_title')}</h3>
+            {previousPerformance.sets && previousPerformance.sets.length > 0 && (
+              <div className="text-xs text-slate-400 grid grid-cols-3 gap-1">
+                {previousPerformance.sets.map((s, i) => <span key={i} className="font-mono bg-slate-700/50 p-1 rounded">{s.weight}kg x {s.reps}</span>)}
               </div>
-            ))
+            )}
+            {previousPerformance.cardioPerformance && (
+              <p className="text-sm font-mono text-slate-300">
+                {formatDuration(previousPerformance.cardioPerformance.duration)}
+                {previousPerformance.cardioPerformance.distance ? ` / ${previousPerformance.cardioPerformance.distance}km` : ''}
+              </p>
+            )}
+          </div>
         )}
-        {currentExercise.exerciseType === ExerciseType.CARDIO && (
-            <div className="bg-slate-800 p-4 rounded-lg shadow-md">
-                <div className="flex justify-between items-center mb-3">
-                    <span className="text-lg font-bold text-white">Log Performance</span>
-                    <div className="text-xs text-slate-400 flex items-center"><History className="w-4 h-4 mr-1" /><span>Previous: {previousPerformance?.cardioPerformance ? `${formatDuration(previousPerformance.cardioPerformance.duration)}, ${previousPerformance.cardioPerformance.distance || 0}km` : 'N/A'}</span></div>
+        
+        {/* Plan Details */}
+        <div className="bg-slate-800 p-3 rounded-lg mb-4 border border-slate-700">
+            <h3 className="flex items-center text-sm font-semibold text-slate-300 mb-2"><Info size={14} className="mr-2"/> {t('workout_session_plan_details_title')}</h3>
+            {currentExercise.exerciseType === ExerciseType.STRENGTH && <p className="text-sm text-slate-300">{t('workout_session_plan_details_strength', { sets: currentPlanExercise.numberOfSets, reps: currentPlanExercise.repRange })}</p>}
+            {currentExercise.exerciseType === ExerciseType.CARDIO && <p className="text-sm text-slate-300">{t('workout_session_plan_details_cardio', { duration: formatDuration(currentPlanExercise.duration || 0) })}</p>}
+            {currentPlanExercise.notes && <p className="text-xs italic text-slate-400 mt-1">{currentPlanExercise.notes}</p>}
+        </div>
+
+        {/* Live Input */}
+        <div className="bg-slate-900 p-4 rounded-lg">
+          {currentExercise.exerciseType === ExerciseType.STRENGTH && (
+            <div className="space-y-3">
+              {currentSets.map((set, setIndex) => (
+                <div key={setIndex} className="grid grid-cols-3 gap-2 items-center">
+                  <span className="font-bold text-slate-300">{t('table_header_set')} {setIndex + 1}</span>
+                  <input type="number" placeholder="kg" value={set.weight} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'weight', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
+                  <input type="number" placeholder={t('table_header_reps')} value={set.reps} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'reps', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
                 </div>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Time Completed</label>
-                        <div className="flex space-x-2">
-                           <input type="number" placeholder="Mins" value={cardioSessionData[currentExercise.id]?.minutes || ''} onChange={e => handleCardioChange(currentExercise.id, 'minutes', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
-                           <input type="number" placeholder="Secs" value={cardioSessionData[currentExercise.id]?.seconds || ''} onChange={e => handleCardioChange(currentExercise.id, 'seconds', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Distance (km)</label>
-                        <input type="number" placeholder="0" value={cardioSessionData[currentExercise.id]?.distance || ''} onChange={e => handleCardioChange(currentExercise.id, 'distance', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" />
-                    </div>
-                </div>
+              ))}
             </div>
-        )}
-        <div className="bg-slate-800 p-4 rounded-lg">
-            <label htmlFor="session-notes" className="block text-sm font-medium text-slate-300 mb-2">Session Notes</label>
-            <textarea
-                id="session-notes"
-                value={sessionNotes[currentExercise.id] || ''}
-                onChange={e => handleNoteChange(currentExercise.id, e.target.value)}
-                rows={3}
-                placeholder="How did it feel? Any adjustments?"
-                className="w-full bg-slate-700 border-slate-600 rounded-md p-2 text-white placeholder-slate-400"
-            />
+          )}
+          {currentExercise.exerciseType === ExerciseType.CARDIO && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-3 gap-2 items-center">
+                <label className="font-bold text-slate-300 text-sm">{t('workout_session_timer_elapsed')}</label>
+                <input type="number" placeholder="min" value={currentCardio.minutes} onChange={e => handleCardioChange(currentExercise.id, 'minutes', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
+                <input type="number" placeholder="sec" value={currentCardio.seconds} onChange={e => handleCardioChange(currentExercise.id, 'seconds', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
+              </div>
+              <div className="grid grid-cols-3 gap-2 items-center">
+                <label className="font-bold text-slate-300 text-sm">{t('cardio_distance')}</label>
+                <input type="number" step="0.1" placeholder="km" value={currentCardio.distance} onChange={e => handleCardioChange(currentExercise.id, 'distance', e.target.value)} className="w-full col-span-2 bg-slate-700 p-2 rounded-md text-center" />
+              </div>
+            </div>
+          )}
+           <textarea
+            value={sessionNotes[currentExercise.id] || ''}
+            onChange={(e) => handleNoteChange(currentExercise.id, e.target.value)}
+            placeholder={t('workout_session_notes_placeholder')}
+            rows={2}
+            className="w-full bg-slate-700 p-2 rounded-md mt-4 text-sm"
+          />
         </div>
       </div>
       
-      <div className="flex-shrink-0 mt-6 pt-4 border-t border-slate-800">
-        <div className="flex justify-between items-center">
-          <button onClick={() => setCurrentExerciseIndex(prev => Math.max(0, prev - 1))} disabled={currentExerciseIndex === 0} className="flex items-center px-4 py-2 bg-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-600"><ChevronLeft className="w-5 h-5 mr-1" /> Previous</button>
-          {currentExerciseIndex === sessionExercises.length - 1 ? (
-            <button onClick={handleFinishWorkout} className="px-6 py-3 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 flex items-center"><Check className="w-5 h-5 mr-2" /> Finish Workout</button>
-          ) : (
-            <button onClick={() => setCurrentExerciseIndex(prev => Math.min(sessionExercises.length - 1, prev + 1))} disabled={currentExerciseIndex === sessionExercises.length - 1} className="flex items-center px-4 py-2 bg-slate-700 rounded-lg disabled:opacity-50 hover:bg-slate-600">Next <ChevronRight className="w-5 h-5 ml-1" /></button>
-          )}
-        </div>
+      {/* Navigation */}
+      <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-700 flex-shrink-0">
+        <button onClick={() => setCurrentExerciseIndex(i => Math.max(0, i - 1))} disabled={currentExerciseIndex === 0} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
+          <ChevronLeft /> <span className="hidden sm:inline ml-2">{t('workout_session_nav_previous')}</span>
+        </button>
+        <button onClick={() => setIsEditingSession(true)} className="flex items-center text-sm p-3 rounded-lg bg-slate-800 hover:bg-slate-700">
+          <Edit size={16} className="mr-2" /> {t('workout_session_nav_edit')}
+        </button>
+        {currentExerciseIndex === sessionExercises.length - 1 ? (
+          <button onClick={handleFinishWorkout} className="flex items-center p-3 rounded-lg bg-green-600 hover:bg-green-500 text-white font-bold">
+            <Check /><span className="hidden sm:inline ml-2">{t('workout_session_nav_finish')}</span>
+          </button>
+        ) : (
+          <button onClick={() => setCurrentExerciseIndex(i => Math.min(sessionExercises.length - 1, i + 1))} disabled={currentExerciseIndex === sessionExercises.length - 1} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
+            <span className="hidden sm:inline mr-2">{t('workout_session_nav_next')}</span><ChevronRight />
+          </button>
+        )}
       </div>
     </div>
   );

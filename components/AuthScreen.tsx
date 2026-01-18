@@ -1,7 +1,10 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
+import { useLanguage } from '../context/LanguageContext';
 
 const AuthScreen: React.FC = () => {
+    const { t } = useLanguage();
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -23,7 +26,7 @@ const AuthScreen: React.FC = () => {
             } else {
                 const { error } = await supabase.auth.signUp({ email, password });
                 if (error) throw error;
-                setMessage('Check your email for the confirmation link!');
+                setMessage(t('auth_signup_success'));
             }
         } catch (error: any) {
             setError(error.error_description || error.message);
@@ -35,23 +38,23 @@ const AuthScreen: React.FC = () => {
     return (
         <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
             <div className="w-full max-w-sm">
-                <div className="flex flex-col items-center justify-center mb-6">
-                    <img src="/logo.png" alt="Gymratting Logo" className="w-40 h-40 mb-4" />
+                <div className="flex flex-col items-center justify-center mb-8">
+                    <img src="/logo.png" alt="Gymratting Logo" className="w-32 h-32 mb-4" />
                 </div>
 
                 <div className="bg-slate-800 rounded-lg shadow-xl p-8">
                     <div className="flex border-b border-slate-700 mb-6">
                         <button onClick={() => setIsLogin(true)} className={`flex-1 py-2 font-semibold transition-colors ${isLogin ? 'text-electric-blue-400 border-b-2 border-electric-blue-400' : 'text-slate-400 hover:text-white'}`}>
-                            Login
+                            {t('auth_login_tab')}
                         </button>
                         <button onClick={() => setIsLogin(false)} className={`flex-1 py-2 font-semibold transition-colors ${!isLogin ? 'text-electric-blue-400 border-b-2 border-electric-blue-400' : 'text-slate-400 hover:text-white'}`}>
-                            Sign Up
+                            {t('auth_signup_tab')}
                         </button>
                     </div>
 
                     <form onSubmit={handleAuth} className="space-y-6">
                         <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-slate-300">Email address</label>
+                            <label htmlFor="email" className="block text-sm font-medium text-slate-300">{t('auth_email_label')}</label>
                             <input
                                 id="email"
                                 name="email"
@@ -65,7 +68,7 @@ const AuthScreen: React.FC = () => {
                         </div>
 
                         <div>
-                            <label htmlFor="password"className="block text-sm font-medium text-slate-300">Password</label>
+                            <label htmlFor="password"className="block text-sm font-medium text-slate-300">{t('auth_password_label')}</label>
                             <input
                                 id="password"
                                 name="password"
@@ -87,7 +90,7 @@ const AuthScreen: React.FC = () => {
                                 disabled={loading}
                                 className="w-full flex justify-center py-3 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors disabled:opacity-50"
                             >
-                                {loading ? 'Processing...' : (isLogin ? 'Login' : 'Sign Up')}
+                                {loading ? t('auth_processing') : (isLogin ? t('auth_login_tab') : t('auth_signup_tab'))}
                             </button>
                         </div>
                     </form>
@@ -97,5 +100,4 @@ const AuthScreen: React.FC = () => {
     );
 };
 
-// FIX: The component was incomplete and was missing a default export.
 export default AuthScreen;

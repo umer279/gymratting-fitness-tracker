@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { FitnessProvider, useFitness } from './context/FitnessContext';
 import PlansScreen from './components/PlansScreen';
@@ -12,25 +13,29 @@ import Dashboard from './components/Dashboard';
 import AuthScreen from './components/AuthScreen';
 import AiAssistantModal from './components/AiAssistantModal';
 import AnalyticsScreen from './components/AnalyticsScreen';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 
 type Screen = 'DASHBOARD' | 'PLANS' | 'HISTORY' | 'EXERCISES' | 'ANALYTICS';
 
 const App: React.FC = () => {
   return (
-    <FitnessProvider>
-      <AppContent />
-    </FitnessProvider>
+    <LanguageProvider>
+      <FitnessProvider>
+        <AppContent />
+      </FitnessProvider>
+    </LanguageProvider>
   );
 };
 
 const AppContent: React.FC = () => {
   const { state } = useFitness();
+  const { t } = useLanguage();
 
   if (state.isLoading) {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center" role="status" aria-label="Loading application">
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center" role="status" aria-label={t('loading')}>
             <Loader className="w-10 h-10 animate-spin text-electric-blue-500" aria-hidden="true" />
-            <p className="sr-only">Loading...</p>
+            <p className="sr-only">{t('loading')}</p>
         </div>
     )
   }
@@ -43,6 +48,7 @@ const AppContent: React.FC = () => {
 }
 
 const MainApp: React.FC = () => {
+  const { t } = useLanguage();
   const [activeScreen, setActiveScreen] = useState<Screen>('DASHBOARD');
   const [activeWorkoutPlan, setActiveWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [showAiAssistant, setShowAiAssistant] = useState(false);
@@ -89,11 +95,11 @@ const MainApp: React.FC = () => {
   };
 
   const navItems = [
-    { name: 'DASHBOARD', icon: Home, label: 'Home' },
-    { name: 'PLANS', icon: List, label: 'Plans' },
-    { name: 'HISTORY', icon: History, label: 'History' },
-    { name: 'ANALYTICS', icon: TrendingUp, label: 'Analytics' },
-    { name: 'EXERCISES', icon: Dumbbell, label: 'Exercises' },
+    { name: 'DASHBOARD', icon: Home, label: t('nav_home') },
+    { name: 'PLANS', icon: List, label: t('nav_plans') },
+    { name: 'HISTORY', icon: History, label: t('nav_history') },
+    { name: 'ANALYTICS', icon: TrendingUp, label: t('nav_analytics') },
+    { name: 'EXERCISES', icon: Dumbbell, label: t('nav_exercises') },
   ];
 
   return (

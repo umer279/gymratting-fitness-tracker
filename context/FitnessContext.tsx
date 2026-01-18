@@ -1,11 +1,11 @@
 
-
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { AVATARS } from '../constants';
 import { GoogleGenAI } from '@google/genai';
+import { useLanguage } from './LanguageContext';
 
 // Combined state
 interface FitnessState {
@@ -117,6 +117,7 @@ const FitnessContext = createContext<{
 
 export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(fitnessReducer, initialState);
+  const { language, t } = useLanguage();
 
   useEffect(() => {
     // --- START: Local Development Mock ---
@@ -205,35 +206,38 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
 
     const handleAppInstalled = () => {
+      // Clear all install-related state once the app is installed
       dispatch({ type: 'SET_DEFERRED_PROMPT', payload: null });
       dispatch({ type: 'SET_ANDROID_INSTALL_INSTRUCTIONS', payload: false });
       dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: false });
     };
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-    
-    const ua = window.navigator.userAgent;
-    const isIOS = /iPad|iPhone|iPod/.test(ua);
-    const isAndroid = /android/i.test(ua);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    
+    // Only set up install prompts if the app is NOT already installed (standalone)
+    if (!isStandalone) {
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.addEventListener('appinstalled', handleAppInstalled);
 
-    if (isStandalone) {
-        return () => {
-            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-            window.removeEventListener('appinstalled', handleAppInstalled);
-        };
+        const ua = window.navigator.userAgent;
+        // A more robust check for iOS
+        const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+        const isAndroid = /android/i.test(ua);
+
+        if (isIOS) {
+            dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: true });
+        } else if (isAndroid) {
+            // This is a fallback. If beforeinstallprompt fires, the reducer will hide this.
+            dispatch({ type: 'SET_ANDROID_INSTALL_INSTRUCTIONS', payload: true });
+        }
     }
 
-    if (isIOS) {
-      dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: true });
-    } else if (isAndroid) {
-      dispatch({ type: 'SET_ANDROID_INSTALL_INSTRUCTIONS', payload: true });
-    }
-
+    // Return a cleanup function to remove listeners if they were added
     return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
+      if (!isStandalone) {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      }
     };
   }, []);
 
@@ -296,11 +300,11 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getAiFitnessCoachResponse = async (prompt: string): Promise<string> => {
     const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-        return "AI features are not configured. Please set the VITE_GEMINI_API_KEY in your environment.";
+        return t('ai_error_no_key');
     }
     const ai = new GoogleGenAI({ apiKey });
 
-    const systemInstruction = `You are an expert fitness coach and nutritionist named Gymrat AI. You are helping a user with their fitness journey. Your tone should be encouraging and informative. Use the provided user data to give personalized advice. Keep your answers concise and well-formatted using markdown (e.g., lists, bold text).`;
+    const systemInstruction = language === 'it' ? t('ai_system_prompt_it') : t('ai_system_prompt_en');
     
     // Sanitize and structure user data for the prompt
     const userDataContext = JSON.stringify({
@@ -322,7 +326,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return response.text;
     } catch (error) {
         console.error("Error calling Gemini API:", error);
-        return "Sorry, I'm having trouble connecting to my brain right now. Please try again later.";
+        return t('ai_error_generic');
     }
   };
 

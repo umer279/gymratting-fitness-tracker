@@ -5,6 +5,7 @@ import { useFitness } from '../context/FitnessContext';
 import { X, Send, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useLanguage } from '../context/LanguageContext';
 
 interface AiAssistantModalProps {
     onClose: () => void;
@@ -18,6 +19,7 @@ type Message = {
 
 const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPrompt }) => {
     const { getAiFitnessCoachResponse } = useFitness();
+    const { t } = useLanguage();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +49,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
                 } catch (error) {
                     console.error(error);
                     if (!ignore) {
-                        const errorMessage: Message = { role: 'model', content: "Sorry, I'm having trouble connecting right now. Please try again later." };
+                        const errorMessage: Message = { role: 'model', content: t('ai_modal_error') };
                         setMessages([userMessage, errorMessage]);
                     }
                 } finally {
@@ -59,7 +61,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
             getInitialResponse();
         } else {
             setMessages([
-                { role: 'model', content: "Hello! I'm your AI Fitness Coach. Ask me anything about your workout plans, nutrition, or how to improve your performance." }
+                { role: 'model', content: t('ai_modal_greeting') }
             ]);
         }
         
@@ -68,7 +70,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
         return () => {
             ignore = true;
         };
-    }, [initialPrompt, getAiFitnessCoachResponse]);
+    }, [initialPrompt, getAiFitnessCoachResponse, t]);
     
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,7 +93,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
             setMessages(prev => [...prev, modelMessage]);
         } catch (error) {
             console.error(error);
-            const errorMessage: Message = { role: 'model', content: "Sorry, I'm having trouble connecting right now. Please try again later." };
+            const errorMessage: Message = { role: 'model', content: t('ai_modal_error') };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
@@ -104,10 +106,10 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
     };
     
     const suggestedPrompts = [
-        "Analyze my last workout.",
-        "Suggest a chest exercise to add to my 'Push Day' plan.",
-        "How can I improve my squat form?",
-        "What should I eat after a workout?"
+        t('ai_modal_suggestion1'),
+        t('ai_modal_suggestion2'),
+        t('ai_modal_suggestion3'),
+        t('ai_modal_suggestion4')
     ];
 
     const markdownComponents = {
@@ -125,7 +127,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
             <div className="flex-shrink-0 bg-slate-900/80 p-4 flex justify-between items-center border-b border-slate-700">
                 <div className="flex items-center">
                     <Sparkles className="w-6 h-6 mr-3 text-electric-blue-400"/>
-                    <h2 className="text-xl font-bold text-white">AI Fitness Coach</h2>
+                    <h2 className="text-xl font-bold text-white">{t('ai_modal_title')}</h2>
                 </div>
                 <button onClick={onClose} className="text-slate-400 hover:text-white"><X /></button>
             </div>
@@ -173,7 +175,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPro
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Ask me anything..."
+                        placeholder={t('ai_modal_input_placeholder')}
                         className="flex-1 bg-slate-700 rounded-lg p-3 text-white placeholder-slate-400 focus:ring-2 focus:ring-electric-blue-500 border-none"
                         disabled={isLoading}
                     />
