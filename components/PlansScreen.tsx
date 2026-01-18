@@ -1,14 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useFitness } from '../context/FitnessContext';
-import { WorkoutPlan, PlanExercise, Exercise, ExerciseType, ExerciseCategory } from '../types';
+import { WorkoutPlan, PlanExercise, Exercise, ExerciseType } from '../types';
 import { Plus, Play, Trash2, Edit, Save, X, Dumbbell, Download, Upload } from 'lucide-react';
 
-interface PlansScreenProps {
-  onStartWorkout: (plan: WorkoutPlan) => void;
-}
-
-// FIX: Corrected the Omit type for `onSave`. It was using `profile_id` which does not exist on `WorkoutPlan`,
-// and it wasn't omitting `user_id`, which is added by the context when creating a new plan.
 const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 'id' | 'user_id'> | WorkoutPlan) => void; onCancel: () => void; exercises: Exercise[] }> = ({ plan, onSave, onCancel, exercises }) => {
   const [name, setName] = useState(plan?.name || '');
   const [planExercises, setPlanExercises] = useState<PlanExercise[]>(plan?.exercises || []);
@@ -113,13 +107,10 @@ const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 
   )
 };
 
-// Validation helpers for CSV import
-const isValidCategory = (value: any): value is ExerciseCategory => {
-    return Object.values(ExerciseCategory).includes(value);
-};
-const isValidType = (value: any): value is ExerciseType => {
-    return Object.values(ExerciseType).includes(value);
-};
+// FIX: Define PlansScreenProps interface for the component props.
+interface PlansScreenProps {
+  onStartWorkout: (plan: WorkoutPlan) => void;
+}
 
 const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
   const { state, addPlan, updatePlan, deletePlan, addExercise } = useFitness();
@@ -127,9 +118,6 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-
-  // FIX: Corrected the Omit type for `planData`. It was using `profile_id` which does not exist on `WorkoutPlan`.
-  // It should omit `id` and `user_id` for new plans, as `user_id` is handled by the context.
   const handleSavePlan = (planData: Omit<WorkoutPlan, 'id' | 'user_id'> | WorkoutPlan) => {
     if ('id' in planData) {
         updatePlan(planData as WorkoutPlan);
@@ -152,44 +140,39 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
     const plan = state.plans.find(p => p.id === planId);
     if (!plan) return;
 
-    const headers = ["Exercise Name", "Category", "Type", "Sets", "Rep Range", "Target Weight (kg)", "Duration (min)", "Notes"];
-    
-    const rows = plan.exercises.map(planEx => {
+    const exportablePlan = {
+      name: plan.name,
+      exercises: plan.exercises.map(planEx => {
         const exerciseDetails = state.exercises.find(ex => ex.id === planEx.exerciseId);
         if (!exerciseDetails) return null;
 
-        const row = [
-            exerciseDetails.name, exerciseDetails.category, exerciseDetails.exerciseType,
-            planEx.numberOfSets || '', planEx.repRange || '', planEx.targetWeight || '',
-            planEx.duration ? planEx.duration / 60 : '', planEx.notes || ''
-        ];
-        
-        return row.map(val => {
-            const strVal = String(val);
-            // Quote value if it contains a comma or a quote
-            if (strVal.includes(',') || strVal.includes('"')) {
-                return `"${strVal.replace(/"/g, '""')}"`;
-            }
-            return strVal;
-        }).join(',');
-    }).filter(Boolean);
+        const { id, user_id, ...exerciseData } = exerciseDetails;
+        const { exerciseId, ...planDetails } = planEx;
 
-    const csvContent = [
-        `"Plan Name:","${plan.name.replace(/"/g, '""')}"`,
-        headers.join(','),
-        ...rows
-    ].join('\n');
+        if (planDetails.duration) {
+            // @ts-ignore
+            planDetails.duration = planDetails.duration / 60; // Store as minutes in JSON
+        }
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        return {
+          exercise: exerciseData,
+          planDetails: planDetails,
+        };
+      }).filter(Boolean),
+    };
+
+    const jsonContent = JSON.stringify(exportablePlan, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gymratting-plan-${plan.name.replace(/\s+/g, '_')}.csv`;
+    a.download = `gymratting-plan-${plan.name.replace(/\s+/g, '_')}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -201,106 +184,54 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
 
     try {
         const text = await file.text();
-        const lines = text.trim().replace(/\r/g, '').split('\n');
-        if (lines.length < 2) throw new Error("Invalid CSV: Must have a plan name, headers, and at least one exercise row.");
+        const importedPlanData = JSON.parse(text);
 
-        const planNameLine = lines[0].split(',');
-        if (!planNameLine[0].toLowerCase().includes("plan name") || !planNameLine[1]) {
-            throw new Error("Invalid CSV: 'Plan Name:' not found in the first line.");
+        if (!importedPlanData.name || !Array.isArray(importedPlanData.exercises)) {
+            throw new Error("Invalid JSON format. Must include a 'name' and an 'exercises' array.");
         }
-        const importedPlanName = planNameLine[1].replace(/"/g, '').trim();
 
-        const headers = lines[1].split(',').map(h => h.trim().replace(/"/g, ''));
-        const headerMap = headers.reduce((acc, header, index) => {
-            acc[header] = index;
-            return acc;
-        }, {} as Record<string, number>);
+        const resolvedPlanExercises: PlanExercise[] = [];
 
-        const exerciseLines = lines.slice(2);
-
-        // Step 1: Parse all lines into a structured format and validate
-        const parsedData = exerciseLines.map((line, lineIndex) => {
-            const values = line.split(','); // NOTE: Simple split, assumes no unquoted commas in values.
-            const rowNum = lineIndex + 3;
-
-            const name = (values[headerMap["Exercise Name"]] || '').trim().replace(/"/g, '');
-            const category = (values[headerMap["Category"]] || '').trim().replace(/"/g, '');
-            const exerciseType = (values[headerMap["Type"]] || '').trim().replace(/"/g, '');
-            
-            if (!name) return null; // Skip empty lines
-
-            if (!isValidCategory(category)) {
-            throw new Error(`Invalid category "${category}" on row ${rowNum}. Must be one of: ${Object.values(ExerciseCategory).join(', ')}`);
-            }
-            if (!isValidType(exerciseType)) {
-            throw new Error(`Invalid type "${exerciseType}" on row ${rowNum}. Must be one of: ${Object.values(ExerciseType).join(', ')}`);
+        for (const item of importedPlanData.exercises) {
+            if (!item.exercise || !item.exercise.name || !item.exercise.category || !item.exercise.exerciseType) {
+                console.warn("Skipping invalid exercise item in JSON:", item);
+                continue;
             }
 
-            const planInfo: Partial<PlanExercise> = {};
-            const numSets = (values[headerMap["Sets"]] || '').trim().replace(/"/g, '');
-            const repRange = (values[headerMap["Rep Range"]] || '').trim().replace(/"/g, '');
-            const targetWeight = (values[headerMap["Target Weight (kg)"]] || '').trim().replace(/"/g, '');
-            const durationMin = (values[headerMap["Duration (min)"]] || '').trim().replace(/"/g, '');
-            const notes = (values[headerMap["Notes"]] || '').trim().replace(/"/g, '');
-            
-            if (exerciseType === ExerciseType.STRENGTH) {
-                if (numSets) planInfo.numberOfSets = parseInt(numSets, 10);
-                if (repRange) planInfo.repRange = repRange;
-                if (targetWeight) planInfo.targetWeight = parseInt(targetWeight, 10);
-            } else {
-                if (durationMin) planInfo.duration = parseInt(durationMin, 10) * 60;
-            }
-            if (notes) planInfo.notes = notes;
+            let exerciseId = state.exercises.find(e => e.name.toLowerCase() === item.exercise.name.toLowerCase())?.id;
 
-            return { name, category, exerciseType, planInfo };
-        }).filter(Boolean);
-
-
-        // Step 2: Identify unique new exercises that need to be created.
-        const exercisesToCreate = new Map<string, { name: string, category: ExerciseCategory, exerciseType: ExerciseType }>();
-        parsedData.forEach(p => {
-            if (p) { // Check p is not null
-                const existing = state.exercises.find(e => e.name.toLowerCase() === p.name.toLowerCase());
-                if (!existing) {
-                    exercisesToCreate.set(p.name.toLowerCase(), { name: p.name, category: p.category, exerciseType: p.exerciseType });
+            if (!exerciseId) {
+                const newExercise = await addExercise({
+                    name: item.exercise.name,
+                    category: item.exercise.category,
+                    exerciseType: item.exercise.exerciseType,
+                });
+                if (newExercise) {
+                    exerciseId = newExercise.id;
+                } else {
+                    throw new Error(`Failed to create new exercise "${item.exercise.name}". Import aborted.`);
                 }
             }
-        });
 
-        // Step 3: Create the new exercises sequentially.
-        const createdExercises: Exercise[] = [];
-        for (const exerciseData of exercisesToCreate.values()) {
-            const newExercise = await addExercise(exerciseData);
-            if (!newExercise) {
-                throw new Error(`Failed to create new exercise "${exerciseData.name}". Import aborted. Please check for database constraints or connection issues.`);
+            const planDetails = item.planDetails || {};
+            if (planDetails.duration) {
+                planDetails.duration = planDetails.duration * 60; // Convert minutes back to seconds
             }
-            createdExercises.push(newExercise);
+
+            resolvedPlanExercises.push({
+                exerciseId: exerciseId,
+                ...planDetails,
+            });
         }
-
-        // Step 4: Build the final list of PlanExercise objects.
-        const allAvailableExercises = [...state.exercises, ...createdExercises];
-
-        const resolvedPlanExercises = parsedData.map(p => {
-            if (!p) return null; // Should not happen due to filter
-            const exercise = allAvailableExercises.find(e => e.name.toLowerCase() === p.name.toLowerCase());
-            if (!exercise) {
-                throw new Error(`Critical error: Could not find exercise "${p.name}" after creation phase.`);
-            }
-            return {
-                exerciseId: exercise.id,
-                ...p.planInfo
-            } as PlanExercise;
-        }).filter(Boolean) as PlanExercise[];
 
         if (resolvedPlanExercises.length === 0) {
             throw new Error("No valid exercises found in the imported file.");
         }
 
-        // Step 5: Create the plan
-        let newPlanName = importedPlanName;
+        let newPlanName = importedPlanData.name;
         let nameCounter = 1;
         while (state.plans.some(p => p.name === newPlanName)) {
-            newPlanName = `${importedPlanName} (Imported ${nameCounter++})`;
+            newPlanName = `${importedPlanData.name} (Imported ${nameCounter++})`;
         }
 
         await addPlan({ name: newPlanName, exercises: resolvedPlanExercises });
@@ -320,7 +251,7 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl md:text-4xl font-bold">Workout Plans</h1>
         <div className="flex items-center space-x-2">
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".csv" className="hidden" />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
             <button onClick={handleImportClick} className="flex items-center justify-center py-2 px-4 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-600 transition-colors">
                 <Upload className="w-5 h-5 mr-2" /> Import
             </button>
