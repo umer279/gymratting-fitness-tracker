@@ -8,6 +8,7 @@ import remarkGfm from 'remark-gfm';
 
 interface AiAssistantModalProps {
     onClose: () => void;
+    initialPrompt?: string;
 }
 
 type Message = {
@@ -15,7 +16,7 @@ type Message = {
     content: string;
 }
 
-const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose }) => {
+const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose, initialPrompt }) => {
     const { getAiFitnessCoachResponse } = useFitness();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -23,10 +24,51 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose }) => {
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        setMessages([
-            { role: 'model', content: "Hello! I'm your AI Fitness Coach. Ask me anything about your workout plans, nutrition, or how to improve your performance." }
-        ]);
-    }, []);
+        // This effect handles the initial state of the modal.
+        // It's designed to be robust in React's Strict Mode, which can cause effects to run twice in development.
+        let ignore = false;
+
+        if (initialPrompt) {
+            const getInitialResponse = async () => {
+                setIsLoading(true);
+                const userMessage: Message = { role: 'user', content: initialPrompt };
+
+                // Set user message immediately so it's visible.
+                if (!ignore) {
+                    setMessages([userMessage]);
+                }
+                
+                try {
+                    const aiResponse = await getAiFitnessCoachResponse(initialPrompt);
+                    if (!ignore) { // Only update state if the component is still mounted.
+                        const modelMessage: Message = { role: 'model', content: aiResponse };
+                        setMessages([userMessage, modelMessage]);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    if (!ignore) {
+                        const errorMessage: Message = { role: 'model', content: "Sorry, I'm having trouble connecting right now. Please try again later." };
+                        setMessages([userMessage, errorMessage]);
+                    }
+                } finally {
+                    if (!ignore) {
+                        setIsLoading(false);
+                    }
+                }
+            };
+            getInitialResponse();
+        } else {
+            setMessages([
+                { role: 'model', content: "Hello! I'm your AI Fitness Coach. Ask me anything about your workout plans, nutrition, or how to improve your performance." }
+            ]);
+        }
+        
+        // Cleanup function: on unmount, set the ignore flag.
+        // In Strict Mode, this will run after the first mount, preventing the first (abandoned) API call from setting state.
+        return () => {
+            ignore = true;
+        };
+    }, [initialPrompt, getAiFitnessCoachResponse]);
     
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -117,7 +159,7 @@ const AiAssistantModal: React.FC<AiAssistantModalProps> = ({ onClose }) => {
 
             {/* Input Area */}
             <div className="flex-shrink-0 bg-slate-900/80 p-4 border-t border-slate-700">
-                {messages.length <= 1 && (
+                {messages.length <= 1 && !initialPrompt && (
                     <div className="grid grid-cols-2 gap-2 mb-2">
                         {suggestedPrompts.map((prompt, i) => (
                             <button key={i} onClick={() => handleSendMessage(prompt)} className="text-left text-sm p-2 bg-slate-800 rounded-md hover:bg-slate-700">

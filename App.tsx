@@ -6,13 +6,14 @@ import PlansScreen from './components/PlansScreen';
 import HistoryScreen from './components/HistoryScreen';
 import ExercisesScreen from './components/ExercisesScreen';
 import WorkoutSession from './components/WorkoutSession';
-import { Dumbbell, History, List, Home, Loader, Sparkles } from 'lucide-react';
+import { Dumbbell, History, List, Home, Loader, Sparkles, TrendingUp } from 'lucide-react';
 import { WorkoutPlan } from './types';
 import Dashboard from './components/Dashboard';
 import AuthScreen from './components/AuthScreen';
 import AiAssistantModal from './components/AiAssistantModal';
+import AnalyticsScreen from './components/AnalyticsScreen';
 
-type Screen = 'DASHBOARD' | 'PLANS' | 'HISTORY' | 'EXERCISES';
+type Screen = 'DASHBOARD' | 'PLANS' | 'HISTORY' | 'EXERCISES' | 'ANALYTICS';
 
 const App: React.FC = () => {
   return (
@@ -45,6 +46,7 @@ const MainApp: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<Screen>('DASHBOARD');
   const [activeWorkoutPlan, setActiveWorkoutPlan] = useState<WorkoutPlan | null>(null);
   const [showAiAssistant, setShowAiAssistant] = useState(false);
+  const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
   const isAiEnabled = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
   const handleStartWorkout = (plan: WorkoutPlan) => {
@@ -55,6 +57,16 @@ const MainApp: React.FC = () => {
     setActiveWorkoutPlan(null);
     setActiveScreen('HISTORY');
   };
+  
+  const handleOpenAiAssistant = (prompt?: string) => {
+    setAiInitialPrompt(prompt);
+    setShowAiAssistant(true);
+  }
+  
+  const handleCloseAiAssistant = () => {
+    setShowAiAssistant(false);
+    setAiInitialPrompt(undefined);
+  }
 
   const renderScreen = () => {
     if (activeWorkoutPlan) {
@@ -69,6 +81,8 @@ const MainApp: React.FC = () => {
         return <HistoryScreen />;
       case 'EXERCISES':
         return <ExercisesScreen />;
+      case 'ANALYTICS':
+        return <AnalyticsScreen onOpenAiAssistant={handleOpenAiAssistant} />;
       default:
         return <Dashboard setActiveScreen={setActiveScreen} onStartWorkout={handleStartWorkout} />;
     }
@@ -78,6 +92,7 @@ const MainApp: React.FC = () => {
     { name: 'DASHBOARD', icon: Home, label: 'Home' },
     { name: 'PLANS', icon: List, label: 'Plans' },
     { name: 'HISTORY', icon: History, label: 'History' },
+    { name: 'ANALYTICS', icon: TrendingUp, label: 'Analytics' },
     { name: 'EXERCISES', icon: Dumbbell, label: 'Exercises' },
   ];
 
@@ -112,7 +127,7 @@ const MainApp: React.FC = () => {
               <button
                 key={item.name}
                 onClick={() => setActiveScreen(item.name as Screen)}
-                className={`flex flex-col items-center p-2 rounded-lg transition-colors ${
+                className={`flex flex-col items-center p-2 rounded-lg transition-colors w-1/5 ${
                   activeScreen === item.name
                     ? 'text-electric-blue-500'
                     : 'text-slate-400 hover:text-electric-blue-500'
@@ -130,11 +145,11 @@ const MainApp: React.FC = () => {
         {renderScreen()}
       </main>
 
-      {showAiAssistant && <AiAssistantModal onClose={() => setShowAiAssistant(false)} />}
+      {showAiAssistant && <AiAssistantModal onClose={handleCloseAiAssistant} initialPrompt={aiInitialPrompt} />}
       
       {!activeWorkoutPlan && isAiEnabled && (
         <button 
-          onClick={() => setShowAiAssistant(true)}
+          onClick={() => handleOpenAiAssistant()}
           className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40 w-16 h-16 bg-electric-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-electric-blue-500 transition-transform transform hover:scale-110"
           aria-label="Open AI Fitness Coach"
         >

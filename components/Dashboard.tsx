@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, ExerciseType, PerformedExercise } from '../types';
-import { PlusCircle, Play, Dumbbell, History, Settings } from 'lucide-react';
+import { PlusCircle, Play, Dumbbell, History, Settings, TrendingUp } from 'lucide-react';
 import SettingsModal from './SettingsModal';
 
 interface DashboardProps {
-  setActiveScreen: (screen: 'PLANS' | 'HISTORY' | 'EXERCISES') => void;
+  setActiveScreen: (screen: 'PLANS' | 'HISTORY' | 'EXERCISES' | 'ANALYTICS') => void;
   onStartWorkout: (plan: WorkoutPlan) => void;
 }
 
@@ -98,7 +98,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveScreen, onStartWorkout }
       {/* Quick Actions */}
       <div>
         <h2 className="text-xl font-semibold mb-4 text-electric-blue-400">Quick Actions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <button onClick={() => setActiveScreen('PLANS')} className="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors text-center">
                 <PlusCircle className="w-8 h-8 mx-auto mb-2 text-electric-blue-500"/>
                 <span className="font-semibold">Create Plan</span>
@@ -110,6 +110,10 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveScreen, onStartWorkout }
             <button onClick={() => setActiveScreen('HISTORY')} className="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors text-center">
                 <History className="w-8 h-8 mx-auto mb-2 text-electric-blue-500"/>
                 <span className="font-semibold">View History</span>
+            </button>
+            <button onClick={() => setActiveScreen('ANALYTICS')} className="p-4 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors text-center">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2 text-electric-blue-500"/>
+                <span className="font-semibold">View Analytics</span>
             </button>
         </div>
       </div>
