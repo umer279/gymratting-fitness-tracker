@@ -1,9 +1,11 @@
 
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session, User } from '@supabase/supabase-js';
 import { AVATARS } from '../constants';
+import { GoogleGenAI } from '@google/genai';
 
 // Combined state
 interface FitnessState {
@@ -16,6 +18,7 @@ interface FitnessState {
   history: WorkoutHistory[];
   deferredPrompt: any | null;
   showIosInstallInstructions: boolean;
+  showAndroidInstallInstructions: boolean;
 }
 
 type FitnessAction =
@@ -33,7 +36,8 @@ type FitnessAction =
   | { type: 'DELETE_WORKOUT_FROM_HISTORY'; payload: string }
   | { type: 'LOG_OUT' }
   | { type: 'SET_DEFERRED_PROMPT'; payload: any | null }
-  | { type: 'SET_IOS_INSTALL_INSTRUCTIONS'; payload: boolean };
+  | { type: 'SET_IOS_INSTALL_INSTRUCTIONS'; payload: boolean }
+  | { type: 'SET_ANDROID_INSTALL_INSTRUCTIONS'; payload: boolean };
 
 const initialState: FitnessState = {
   isLoading: true,
@@ -45,6 +49,7 @@ const initialState: FitnessState = {
   history: [],
   deferredPrompt: null,
   showIosInstallInstructions: false,
+  showAndroidInstallInstructions: false,
 };
 
 const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessState => {
@@ -76,9 +81,17 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
     case 'DELETE_WORKOUT_FROM_HISTORY':
       return { ...state, history: state.history.filter(h => h.id !== action.payload) };
     case 'SET_DEFERRED_PROMPT':
-      return { ...state, deferredPrompt: action.payload };
+      if (action.payload) {
+        return { ...state, deferredPrompt: action.payload, showAndroidInstallInstructions: false };
+      }
+      return { ...state, deferredPrompt: null };
     case 'SET_IOS_INSTALL_INSTRUCTIONS':
         return { ...state, showIosInstallInstructions: action.payload };
+    case 'SET_ANDROID_INSTALL_INSTRUCTIONS':
+        if (state.deferredPrompt) {
+            return state;
+        }
+        return { ...state, showAndroidInstallInstructions: action.payload };
     default:
       return state;
   }
@@ -99,6 +112,7 @@ const FitnessContext = createContext<{
   deleteAccount: () => Promise<void>;
   refetchUserData: () => Promise<void>;
   triggerInstallPrompt: () => Promise<void>;
+  getAiFitnessCoachResponse: (prompt: string) => Promise<string>;
 } | undefined>(undefined);
 
 export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -192,18 +206,29 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const handleAppInstalled = () => {
       dispatch({ type: 'SET_DEFERRED_PROMPT', payload: null });
+      dispatch({ type: 'SET_ANDROID_INSTALL_INSTRUCTIONS', payload: false });
+      dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: false });
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
     
-    // Check for iOS and standalone mode
     const ua = window.navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isAndroid = /android/i.test(ua);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
 
-    if (isIOS && !isStandalone) {
+    if (isStandalone) {
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.removeEventListener('appinstalled', handleAppInstalled);
+        };
+    }
+
+    if (isIOS) {
       dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: true });
+    } else if (isAndroid) {
+      dispatch({ type: 'SET_ANDROID_INSTALL_INSTRUCTIONS', payload: true });
     }
 
     return () => {
@@ -267,6 +292,39 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     const env = (import.meta as any).env;
     return env.MODE === 'development' && env.VITE_MOCK_USER_ENABLED === 'true';
   }
+
+  const getAiFitnessCoachResponse = async (prompt: string): Promise<string> => {
+    const apiKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+        return "AI features are not configured. Please set the VITE_GEMINI_API_KEY in your environment.";
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
+    const systemInstruction = `You are an expert fitness coach and nutritionist named Gymrat AI. You are helping a user with their fitness journey. Your tone should be encouraging and informative. Use the provided user data to give personalized advice. Keep your answers concise and well-formatted using markdown (e.g., lists, bold text).`;
+    
+    // Sanitize and structure user data for the prompt
+    const userDataContext = JSON.stringify({
+      plans: state.plans.map(p => ({ name: p.name, exercises: p.exercises.length })),
+      recentHistory: state.history.slice(0, 5).map(h => ({ planName: h.planName, date: h.date, exercises: h.exercises.length })),
+      availableExercises: state.exercises.map(e => e.name)
+    });
+    
+    const fullPrompt = `User Data Context: ${userDataContext}\n\nUser Question: "${prompt}"`;
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: fullPrompt,
+            config: {
+                systemInstruction: systemInstruction,
+            },
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        return "Sorry, I'm having trouble connecting to my brain right now. Please try again later.";
+    }
+  };
 
   const updateProfile = async (id: string, name: string, avatar: string) => {
     dispatch({ type: 'UPDATE_PROFILE_LOCALLY', payload: { id, name, avatar }});
@@ -394,7 +452,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount, refetchUserData: fetchUserData, triggerInstallPrompt }}>
+    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount, refetchUserData: fetchUserData, triggerInstallPrompt, getAiFitnessCoachResponse }}>
       {children}
     </FitnessContext.Provider>
   );

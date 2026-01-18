@@ -32,7 +32,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveScreen, onStartWorkout }
   }
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 relative">
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
         <div className="flex justify-between items-center mb-6">
             <div>
@@ -113,6 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ setActiveScreen, onStartWorkout }
             </button>
         </div>
       </div>
+      
     </div>
   );
 };

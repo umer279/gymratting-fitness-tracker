@@ -1,14 +1,16 @@
 
+
 import React, { useState } from 'react';
 import { FitnessProvider, useFitness } from './context/FitnessContext';
 import PlansScreen from './components/PlansScreen';
 import HistoryScreen from './components/HistoryScreen';
 import ExercisesScreen from './components/ExercisesScreen';
 import WorkoutSession from './components/WorkoutSession';
-import { Dumbbell, History, List, Home, Loader } from 'lucide-react';
+import { Dumbbell, History, List, Home, Loader, Sparkles } from 'lucide-react';
 import { WorkoutPlan } from './types';
 import Dashboard from './components/Dashboard';
 import AuthScreen from './components/AuthScreen';
+import AiAssistantModal from './components/AiAssistantModal';
 
 type Screen = 'DASHBOARD' | 'PLANS' | 'HISTORY' | 'EXERCISES';
 
@@ -25,8 +27,9 @@ const AppContent: React.FC = () => {
 
   if (state.isLoading) {
     return (
-        <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-            <Loader className="w-10 h-10 animate-spin text-electric-blue-500" />
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center" role="status" aria-label="Loading application">
+            <Loader className="w-10 h-10 animate-spin text-electric-blue-500" aria-hidden="true" />
+            <p className="sr-only">Loading...</p>
         </div>
     )
   }
@@ -41,6 +44,8 @@ const AppContent: React.FC = () => {
 const MainApp: React.FC = () => {
   const [activeScreen, setActiveScreen] = useState<Screen>('DASHBOARD');
   const [activeWorkoutPlan, setActiveWorkoutPlan] = useState<WorkoutPlan | null>(null);
+  const [showAiAssistant, setShowAiAssistant] = useState(false);
+  const isAiEnabled = (import.meta as any).env.VITE_GEMINI_API_KEY;
 
   const handleStartWorkout = (plan: WorkoutPlan) => {
     setActiveWorkoutPlan(plan);
@@ -82,7 +87,7 @@ const MainApp: React.FC = () => {
         <>
           <nav className="hidden md:flex md:flex-col md:w-64 bg-slate-950 p-4 border-r border-slate-800">
             <div className="flex items-center justify-center mb-8">
-              <img src="/logo.png" alt="Gymratting Logo" className="w-32 h-32" />
+              <img src="/logo.png" alt="Gymratting Logo" className="w-16 h-16" />
             </div>
             <ul>
               {navItems.map((item) => (
@@ -124,6 +129,18 @@ const MainApp: React.FC = () => {
       <main className={`flex-1 transition-all duration-300 ${!activeWorkoutPlan ? 'pb-20 md:pb-0' : ''}`}>
         {renderScreen()}
       </main>
+
+      {showAiAssistant && <AiAssistantModal onClose={() => setShowAiAssistant(false)} />}
+      
+      {!activeWorkoutPlan && isAiEnabled && (
+        <button 
+          onClick={() => setShowAiAssistant(true)}
+          className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40 w-16 h-16 bg-electric-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-electric-blue-500 transition-transform transform hover:scale-110"
+          aria-label="Open AI Fitness Coach"
+        >
+          <Sparkles className="w-8 h-8" />
+        </button>
+      )}
     </div>
   );
 };
