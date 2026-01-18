@@ -1,10 +1,10 @@
-
 import { ExerciseCategory } from './types';
 
 export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
   ExerciseCategory.CHEST,
   ExerciseCategory.BACK,
-  ExerciseCategory.ARMS,
+  ExerciseCategory.BICEPS,
+  ExerciseCategory.TRICEPS,
   ExerciseCategory.LEGS,
   ExerciseCategory.SHOULDERS,
   ExerciseCategory.CORE,

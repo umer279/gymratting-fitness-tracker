@@ -1,8 +1,8 @@
-
 export enum ExerciseCategory {
   CHEST = 'Chest',
   BACK = 'Back',
-  ARMS = 'Arms',
+  BICEPS = 'Biceps',
+  TRICEPS = 'Triceps',
   LEGS = 'Legs',
   SHOULDERS = 'Shoulders',
   CARDIO = 'Cardio',

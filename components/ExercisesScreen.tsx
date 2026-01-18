@@ -1,16 +1,60 @@
-
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { Exercise, ExerciseCategory, ExerciseType } from '../types';
 import { EXERCISE_CATEGORIES } from '../constants';
-import { Plus, Tag, Zap, Weight, Trash2 } from 'lucide-react';
+import { Plus, Tag, Zap, Weight, Trash2, Edit, Save, X } from 'lucide-react';
+
+const EditExerciseModal: React.FC<{ exercise: Exercise; onSave: (exercise: Exercise) => void; onCancel: () => void; }> = ({ exercise, onSave, onCancel }) => {
+    const [name, setName] = useState(exercise.name);
+    const [category, setCategory] = useState(exercise.category);
+    const [exerciseType, setExerciseType] = useState(exercise.exerciseType);
+
+    const handleSave = () => {
+        if(name.trim()) {
+            onSave({ ...exercise, name: name.trim(), category, exerciseType });
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+                <button onClick={onCancel} className="absolute top-3 right-3 text-slate-400 hover:text-white"><X /></button>
+                <h2 className="text-2xl font-bold mb-6 text-white">Edit Exercise</h2>
+                <div className="space-y-4">
+                     <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Exercise Name</label>
+                        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-slate-700 p-2 rounded-md" required />
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                        <select value={category} onChange={(e) => setCategory(e.target.value as ExerciseCategory)} className="w-full bg-slate-700 p-2 rounded-md">
+                            {EXERCISE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                        </select>
+                    </div>
+                     <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Exercise Type</label>
+                        <div className="flex rounded-lg bg-slate-900 p-1 w-full">
+                            <button type="button" onClick={() => setExerciseType(ExerciseType.STRENGTH)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${exerciseType === ExerciseType.STRENGTH ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Weight className="w-4 h-4 mr-2" />Strength</button>
+                            <button type="button" onClick={() => setExerciseType(ExerciseType.CARDIO)} className={`flex-1 flex items-center justify-center p-2 rounded-md text-sm font-semibold transition-colors ${exerciseType === ExerciseType.CARDIO ? 'bg-electric-blue-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}><Zap className="w-4 h-4 mr-2" />Cardio</button>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex justify-end space-x-4 mt-6">
+                    <button onClick={onCancel} className="px-4 py-2 bg-slate-600 rounded-lg hover:bg-slate-500">Cancel</button>
+                    <button onClick={handleSave} className="px-4 py-2 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 flex items-center"><Save className="w-4 h-4 mr-2"/> Save Changes</button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ExercisesScreen: React.FC = () => {
-  const { state, addExercise, deleteExercise } = useFitness();
+  const { state, addExercise, updateExercise, deleteExercise } = useFitness();
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseCategory, setNewExerciseCategory] = useState<ExerciseCategory>(ExerciseCategory.CHEST);
   const [newExerciseType, setNewExerciseType] = useState<ExerciseType>(ExerciseType.STRENGTH);
   const [filter, setFilter] = useState<ExerciseCategory | 'ALL'>('ALL');
+  const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
   const handleAddExercise = (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +67,11 @@ const ExercisesScreen: React.FC = () => {
       setNewExerciseName('');
     }
   };
+
+  const handleUpdateExercise = async (exercise: Exercise) => {
+    await updateExercise(exercise);
+    setEditingExercise(null);
+  }
   
   const handleDeleteExercise = (id: string) => {
       if(window.confirm("Are you sure you want to delete this exercise? This might affect existing workout plans.")) {
@@ -36,6 +85,7 @@ const ExercisesScreen: React.FC = () => {
 
   return (
     <div className="p-4 md:p-8">
+      {editingExercise && <EditExerciseModal exercise={editingExercise} onSave={handleUpdateExercise} onCancel={() => setEditingExercise(null)} />}
       <h1 className="text-3xl md:text-4xl font-bold mb-6">Exercise Library</h1>
       
       <div className="bg-slate-800 p-6 rounded-lg mb-8 shadow-md border border-slate-700">
@@ -101,7 +151,10 @@ const ExercisesScreen: React.FC = () => {
                   </span>
                   <span className="flex items-center text-slate-400"><Tag className="w-3 h-3 mr-1" />{ex.category}</span>
               </div>
-              <button onClick={() => handleDeleteExercise(ex.id)} className="absolute top-2 right-2 p-1.5 bg-slate-700/50 rounded-full text-slate-400 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all"><Trash2 size={14}/></button>
+              <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => setEditingExercise(ex)} className="p-1.5 bg-slate-700/50 rounded-full text-slate-400 hover:bg-blue-500 hover:text-white transition-colors"><Edit size={14}/></button>
+                  <button onClick={() => handleDeleteExercise(ex.id)} className="p-1.5 bg-slate-700/50 rounded-full text-slate-400 hover:bg-red-500 hover:text-white transition-colors"><Trash2 size={14}/></button>
+              </div>
             </div>
           ))}
            {state.exercises.length > 0 && filteredExercises.length === 0 && (

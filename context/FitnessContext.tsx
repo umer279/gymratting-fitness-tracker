@@ -21,6 +21,7 @@ type FitnessAction =
   | { type: 'SET_USER_DATA'; payload: { exercises: Exercise[]; plans: WorkoutPlan[]; history: WorkoutHistory[] } }
   | { type: 'UPDATE_PROFILE_LOCALLY'; payload: Profile }
   | { type: 'ADD_EXERCISE'; payload: Exercise }
+  | { type: 'UPDATE_EXERCISE'; payload: Exercise }
   | { type: 'DELETE_EXERCISE'; payload: string }
   | { type: 'ADD_PLAN'; payload: WorkoutPlan }
   | { type: 'UPDATE_PLAN'; payload: WorkoutPlan }
@@ -44,7 +45,7 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
     case 'SET_LOADING':
       return { ...state, isLoading: action.payload };
     case 'SET_SESSION_AND_PROFILE':
-      return { ...state, session: action.payload.session, user: action.payload.session?.user ?? null, profile: action.payload.profile };
+      return { ...state, isLoading: false, session: action.payload.session, user: action.payload.session?.user ?? null, profile: action.payload.profile };
     case 'SET_USER_DATA':
       return { ...state, ...action.payload };
     case 'LOG_OUT':
@@ -53,6 +54,8 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
       return { ...state, profile: action.payload };
     case 'ADD_EXERCISE':
       return { ...state, exercises: [...state.exercises, action.payload] };
+    case 'UPDATE_EXERCISE':
+      return { ...state, exercises: state.exercises.map(ex => ex.id === action.payload.id ? action.payload : ex) };
     case 'DELETE_EXERCISE':
       return { ...state, exercises: state.exercises.filter(ex => ex.id !== action.payload) };
     case 'ADD_PLAN':
@@ -75,6 +78,7 @@ const FitnessContext = createContext<{
   dispatch: React.Dispatch<FitnessAction>;
   updateProfile: (id: string, name: string, avatar: string) => Promise<void>;
   addExercise: (exercise: Omit<Exercise, 'id' | 'user_id'>) => Promise<Exercise | null>;
+  updateExercise: (exercise: Exercise) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
   addPlan: (plan: Omit<WorkoutPlan, 'id' | 'user_id'>) => Promise<void>;
   updatePlan: (plan: WorkoutPlan) => Promise<void>;
@@ -102,7 +106,6 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       };
       const mockProfile: Profile = { id: mockUser.id, name: 'Local Dev', avatar: '🏆' };
       dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session: mockSession, profile: mockProfile } });
-      dispatch({ type: 'SET_LOADING', payload: false });
       return;
     }
     // --- END: Local Development Mock ---
@@ -120,10 +123,9 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which we handle.
         console.error("Error fetching profile, logging out:", error);
-        supabase.auth.signOut();
+        await supabase.auth.signOut();
       } else if (profile) {
         dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile } });
-        dispatch({ type: 'SET_LOADING', payload: false });
       } else {
         const { data: newProfile, error: insertError } = await supabase
           .from('profiles')
@@ -137,10 +139,9 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         
         if (insertError) {
           console.error("Error creating profile, logging out:", insertError);
-          supabase.auth.signOut();
+          await supabase.auth.signOut();
         } else {
           dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile: newProfile } });
-          dispatch({ type: 'SET_LOADING', payload: false });
         }
       }
     });
@@ -218,6 +219,17 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         return data;
     }
     return null;
+  };
+
+  const updateExercise = async (exercise: Exercise) => {
+    dispatch({ type: 'UPDATE_EXERCISE', payload: exercise });
+    if (isMockMode()) {
+        console.log("DEV MODE: Updating exercise locally.");
+        return;
+    }
+    const { id, user_id, ...updateData } = exercise;
+    const { error } = await supabase.from('exercises').update(updateData).eq('id', id);
+    if (error) console.error("Error updating exercise", error);
   };
   
   const deleteExercise = async (id: string) => {
@@ -305,7 +317,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount }}>
+    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount }}>
       {children}
     </FitnessContext.Provider>
   );
