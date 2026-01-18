@@ -18,6 +18,7 @@ export interface Profile {
   id: string; // This MUST match the auth.users.id
   name: string;
   avatar: string;
+  is_pro?: boolean;
 }
 
 export interface Exercise {

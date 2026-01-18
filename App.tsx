@@ -1,6 +1,10 @@
 
 
 
+
+
+
+
 import React, { useState } from 'react';
 import { FitnessProvider, useFitness } from './context/FitnessContext';
 import PlansScreen from './components/PlansScreen';
@@ -48,6 +52,7 @@ const AppContent: React.FC = () => {
 }
 
 const MainApp: React.FC = () => {
+  const { state } = useFitness();
   const { t } = useLanguage();
   const [activeScreen, setActiveScreen] = useState<Screen>('DASHBOARD');
   const [activeWorkoutPlan, setActiveWorkoutPlan] = useState<WorkoutPlan | null>(null);
@@ -73,6 +78,14 @@ const MainApp: React.FC = () => {
     setShowAiAssistant(false);
     setAiInitialPrompt(undefined);
   }
+
+  const handleAiButtonClick = () => {
+    if (state.profile?.is_pro) {
+      handleOpenAiAssistant();
+    } else {
+      alert(`${t('premium_feature_title')}\n\n${t('premium_feature_description')}`);
+    }
+  };
 
   const renderScreen = () => {
     if (activeWorkoutPlan) {
@@ -155,7 +168,7 @@ const MainApp: React.FC = () => {
       
       {!activeWorkoutPlan && isAiEnabled && (
         <button 
-          onClick={() => handleOpenAiAssistant()}
+          onClick={handleAiButtonClick}
           className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40 w-16 h-16 bg-electric-blue-600 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-electric-blue-500 transition-transform transform hover:scale-110"
           aria-label="Open AI Fitness Coach"
         >

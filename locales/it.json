@@ -135,5 +135,7 @@
   "ai_system_prompt_en": "You are an expert fitness coach and nutritionist named Gymrat AI. You are helping a user with their fitness journey. Your tone should be encouraging and informative. Use the provided user data to give personalized advice. Keep your answers concise and well-formatted using markdown (e.g., lists, bold text). The user's language is English, so you must respond in English.",
   "ai_system_prompt_it": "Sei un esperto fitness coach e nutrizionista di nome Gymrat AI. Stai aiutando un utente nel suo percorso di fitness. Il tuo tono deve essere incoraggiante e informativo. Usa i dati utente forniti per dare consigli personalizzati. Mantieni le tue risposte concise e ben formattate usando markdown (es. elenchi, testo in grassetto). La lingua dell'utente è l'italiano, quindi devi rispondere in italiano.",
   "ai_error_generic": "Scusa, al momento ho problemi a connettermi al mio cervello. Riprova più tardi.",
-  "ai_error_no_key": "Le funzionalità AI non sono configurate. Imposta VITE_GEMINI_API_KEY nel tuo ambiente."
+  "ai_error_no_key": "Le funzionalità AI non sono configurate. Imposta VITE_GEMINI_API_KEY nel tuo ambiente.",
+  "premium_feature_title": "Funzionalità AI Bloccata",
+  "premium_feature_description": "Sblocca potenti analisi con il nostro AI Fitness Coach. Questa funzionalità premium sarà presto disponibile!"
 }

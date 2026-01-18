@@ -1,4 +1,10 @@
 
+
+
+
+
+
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -25,7 +31,7 @@ type FitnessAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_SESSION_AND_PROFILE'; payload: { session: Session | null; profile: Profile | null } }
   | { type: 'SET_USER_DATA'; payload: { exercises: Exercise[]; plans: WorkoutPlan[]; history: WorkoutHistory[] } }
-  | { type: 'UPDATE_PROFILE_LOCALLY'; payload: Profile }
+  | { type: 'UPDATE_PROFILE_LOCALLY'; payload: Partial<Profile> }
   | { type: 'ADD_EXERCISE'; payload: Exercise }
   | { type: 'UPDATE_EXERCISE'; payload: Exercise }
   | { type: 'DELETE_EXERCISE'; payload: string }
@@ -63,7 +69,7 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
     case 'LOG_OUT':
         return {...initialState, isLoading: false };
     case 'UPDATE_PROFILE_LOCALLY':
-      return { ...state, profile: action.payload };
+      return { ...state, profile: state.profile ? { ...state.profile, ...action.payload } : null };
     case 'ADD_EXERCISE':
       return { ...state, exercises: [...state.exercises, action.payload] };
     case 'UPDATE_EXERCISE':
@@ -132,7 +138,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
       const mockSession: Session = {
         access_token: 'mock-access-token', refresh_token: 'mock-refresh-token', user: mockUser, token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600,
       };
-      const mockProfile: Profile = { id: mockUser.id, name: 'Local Dev', avatar: '🏆' };
+      const mockProfile: Profile = { id: mockUser.id, name: 'Local Dev', avatar: '🏆', is_pro: true };
       dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session: mockSession, profile: mockProfile } });
       return;
     }
@@ -331,7 +337,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const updateProfile = async (id: string, name: string, avatar: string) => {
-    dispatch({ type: 'UPDATE_PROFILE_LOCALLY', payload: { id, name, avatar }});
+    dispatch({ type: 'UPDATE_PROFILE_LOCALLY', payload: { name, avatar }});
     if (isMockMode()) {
         console.log("DEV MODE: Updating profile locally.");
         return;

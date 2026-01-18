@@ -1,9 +1,10 @@
 
 
+
 import React, { useMemo } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { ExerciseType, ExerciseCategory } from '../types';
-import { BarChart, PieChart, Weight, Sparkles, Activity } from 'lucide-react';
+import { BarChart, PieChart, Weight, Sparkles, Activity, Lock } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
 interface AnalyticsScreenProps {
@@ -98,6 +99,28 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
         onOpenAiAssistant(prompt);
     };
     
+    const renderAiAnalysisButton = () => {
+        if (!isAiEnabled) return null;
+
+        if (state.profile?.is_pro) {
+            return (
+                <button onClick={handleAiAnalysis} className="flex items-center justify-center py-2 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors">
+                    <Sparkles className="w-5 h-5 mr-2" /> {t('get_ai_analysis_button')}
+                </button>
+            )
+        }
+
+        return (
+            <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-lg text-center">
+                <div className="flex items-center justify-center mb-2">
+                    <Lock className="w-5 h-5 mr-2 text-electric-blue-400"/>
+                    <h3 className="font-bold text-white">{t('premium_feature_title')}</h3>
+                </div>
+                <p className="text-sm text-slate-400">{t('premium_feature_description')}</p>
+            </div>
+        )
+    }
+    
     if (state.history.length === 0) {
         return (
             <div className="p-4 md:p-8 text-center">
@@ -111,16 +134,13 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
 
     return (
         <div className="p-4 md:p-8">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-start mb-6">
                 <h1 className="text-3xl md:text-4xl font-bold">{t('analytics_title')}</h1>
-                 {isAiEnabled && (
-                    <button onClick={handleAiAnalysis} className="flex items-center justify-center py-2 px-4 bg-electric-blue-600 text-white font-bold rounded-lg hover:bg-electric-blue-500 transition-colors">
-                        <Sparkles className="w-5 h-5 mr-2" /> {t('get_ai_analysis_button')}
-                    </button>
-                )}
             </div>
+            
+            {renderAiAnalysisButton()}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
                 <div className="bg-slate-800 p-6 rounded-lg border border-slate-700">
                     <div className="flex items-center text-slate-400 mb-2">
                         <Activity size={16} className="mr-2"/>
