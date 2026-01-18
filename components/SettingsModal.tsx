@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { AVATARS } from '../constants';
-import { Save, LogOut, ShieldAlert, X } from 'lucide-react';
+import { Save, LogOut, ShieldAlert, X, DownloadCloud, Share } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 interface SettingsModalProps {
@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
-    const { state, updateProfile, deleteAccount } = useFitness();
+    const { state, updateProfile, deleteAccount, triggerInstallPrompt } = useFitness();
     const [name, setName] = useState(state.profile?.name || '');
     const [avatar, setAvatar] = useState(state.profile?.avatar || AVATARS[0]);
     const [isLoading, setIsLoading] = useState(false);
@@ -81,6 +81,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <div className="border-t border-slate-700 my-6"></div>
 
                 <div className="space-y-3">
+                    {state.deferredPrompt && (
+                        <button
+                            onClick={triggerInstallPrompt}
+                            className="w-full flex items-center justify-center text-sm py-2 px-3 bg-electric-blue-600 text-white font-bold hover:bg-electric-blue-500 rounded-lg transition-colors"
+                        >
+                            <DownloadCloud className="w-4 h-4 mr-2" />
+                            Download App
+                        </button>
+                    )}
+                    {state.showIosInstallInstructions && (
+                         <div className="text-center p-3 bg-slate-700 rounded-lg border border-slate-600">
+                            <p className="text-sm font-semibold text-slate-200 mb-2">Install Gymratting</p>
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                            Tap the <Share className="inline-block w-4 h-4 mx-1" /> icon in your browser's toolbar, then tap "Add to Home Screen".
+                            </p>
+                        </div>
+                    )}
                     <button onClick={handleLogout} className="w-full flex items-center justify-center text-sm py-2 px-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors">
                         <LogOut className="w-4 h-4 mr-2" />
                         Logout

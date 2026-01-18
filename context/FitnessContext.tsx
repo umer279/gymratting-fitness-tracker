@@ -14,6 +14,8 @@ interface FitnessState {
   exercises: Exercise[];
   plans: WorkoutPlan[];
   history: WorkoutHistory[];
+  deferredPrompt: any | null;
+  showIosInstallInstructions: boolean;
 }
 
 type FitnessAction =
@@ -29,7 +31,9 @@ type FitnessAction =
   | { type: 'DELETE_PLAN'; payload: string }
   | { type: 'ADD_WORKOUT_TO_HISTORY'; payload: WorkoutHistory }
   | { type: 'DELETE_WORKOUT_FROM_HISTORY'; payload: string }
-  | { type: 'LOG_OUT' };
+  | { type: 'LOG_OUT' }
+  | { type: 'SET_DEFERRED_PROMPT'; payload: any | null }
+  | { type: 'SET_IOS_INSTALL_INSTRUCTIONS'; payload: boolean };
 
 const initialState: FitnessState = {
   isLoading: true,
@@ -39,6 +43,8 @@ const initialState: FitnessState = {
   exercises: [],
   plans: [],
   history: [],
+  deferredPrompt: null,
+  showIosInstallInstructions: false,
 };
 
 const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessState => {
@@ -69,6 +75,10 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
       return { ...state, history: [action.payload, ...state.history].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()) };
     case 'DELETE_WORKOUT_FROM_HISTORY':
       return { ...state, history: state.history.filter(h => h.id !== action.payload) };
+    case 'SET_DEFERRED_PROMPT':
+      return { ...state, deferredPrompt: action.payload };
+    case 'SET_IOS_INSTALL_INSTRUCTIONS':
+        return { ...state, showIosInstallInstructions: action.payload };
     default:
       return state;
   }
@@ -88,6 +98,7 @@ const FitnessContext = createContext<{
   deleteWorkoutFromHistory: (id: string) => Promise<void>;
   deleteAccount: () => Promise<void>;
   refetchUserData: () => Promise<void>;
+  triggerInstallPrompt: () => Promise<void>;
 } | undefined>(undefined);
 
 export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -173,6 +184,34 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     };
   }, []);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      dispatch({ type: 'SET_DEFERRED_PROMPT', payload: e });
+    };
+
+    const handleAppInstalled = () => {
+      dispatch({ type: 'SET_DEFERRED_PROMPT', payload: null });
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    
+    // Check for iOS and standalone mode
+    const ua = window.navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isIOS && !isStandalone) {
+      dispatch({ type: 'SET_IOS_INSTALL_INSTRUCTIONS', payload: true });
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
 
   const fetchUserData = useCallback(async () => {
       if (!state.user) {
@@ -215,6 +254,14 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
     fetchUserData();
   }, [state.user, fetchUserData]);
+  
+  const triggerInstallPrompt = async () => {
+    if (state.deferredPrompt) {
+      state.deferredPrompt.prompt();
+      // The prompt can only be used once.
+      dispatch({ type: 'SET_DEFERRED_PROMPT', payload: null });
+    }
+  };
 
   const isMockMode = () => {
     const env = (import.meta as any).env;
@@ -347,7 +394,7 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount, refetchUserData: fetchUserData }}>
+    <FitnessContext.Provider value={{ state, dispatch, updateProfile, addExercise, updateExercise, deleteExercise, addPlan, updatePlan, deletePlan, addWorkoutToHistory, deleteWorkoutFromHistory, deleteAccount, refetchUserData: fetchUserData, triggerInstallPrompt }}>
       {children}
     </FitnessContext.Provider>
   );
