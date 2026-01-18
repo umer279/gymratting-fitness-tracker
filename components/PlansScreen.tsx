@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, PlanExercise, Exercise, ExerciseType } from '../types';
@@ -252,9 +254,9 @@ const PlansScreen: React.FC<PlansScreenProps> = ({ onStartWorkout }) => {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row justify-between md:items-center mb-6 gap-4">
         <h1 className="text-3xl md:text-4xl font-bold">{t('plans_title')}</h1>
-        <div className="flex items-center space-x-2">
+        <div className="flex w-full md:w-auto items-center justify-end space-x-2">
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
             <button onClick={handleImportClick} className="flex items-center justify-center py-2 px-4 bg-slate-700 text-white font-bold rounded-lg hover:bg-slate-600 transition-colors">
                 <Upload className="w-5 h-5 mr-2" /> {t('import_button')}
