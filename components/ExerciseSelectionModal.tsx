@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { Exercise, ExerciseCategory } from '../types';
@@ -73,7 +72,7 @@ const ExerciseSelectionModal: React.FC<ExerciseSelectionModalProps> = ({ onSelec
                     {filteredExercises.map(ex => (
                         <button key={ex.id} onClick={() => onSelect(ex.id)} className="w-full text-left p-3 bg-slate-900 rounded-lg hover:bg-slate-700 transition-colors">
                             <p className="font-semibold text-white">{ex.name}</p>
-                            <p className="text-xs text-slate-400">{tCategory(ex.category)} - {t(ex.exerciseType as any)}</p>
+                            <p className="text-xs text-slate-400">{tCategory(ex.category)} - {t(`${ex.exerciseType.toLowerCase()}_type` as any)}</p>
                         </button>
                     ))}
                 </div>

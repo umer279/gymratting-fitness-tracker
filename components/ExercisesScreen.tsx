@@ -1,6 +1,3 @@
-
-
-
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { Exercise, ExerciseCategory, ExerciseType } from '../types';
@@ -109,7 +106,7 @@ const ExercisesScreen: React.FC = () => {
               <div className="flex items-center mt-2 text-xs space-x-2">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${ex.exerciseType === ExerciseType.STRENGTH ? 'bg-blue-900 text-blue-300' : 'bg-green-900 text-green-300'}`}>
                     {ex.exerciseType === ExerciseType.STRENGTH ? <Weight className="w-3 h-3 mr-1" /> : <Zap className="w-3 h-3 mr-1" />}
-                    {t(ex.exerciseType as any)}
+                    {t(`${ex.exerciseType.toLowerCase()}_type` as any)}
                   </span>
                   <span className="flex items-center text-slate-400"><Tag className="w-3 h-3 mr-1" />{tCategory(ex.category)}</span>
               </div>

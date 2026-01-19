@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutHistory, ExerciseType } from '../types';
@@ -35,7 +31,7 @@ const HistoryDetailModal: React.FC<{ workout: WorkoutHistory, onClose: () => voi
                         <button onClick={onClose} className="text-slate-400 hover:text-white p-1"><X /></button>
                     </div>
                 </div>
-                <div className="flex items-center space-x-4 text-sm text-slate-400 mb-4">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400 mb-4">
                     <span className="flex items-center"><Calendar className="w-4 h-4 mr-1"/> {new Date(workout.date).toLocaleDateString()}</span>
                     <span className="flex items-center"><Clock className="w-4 h-4 mr-1"/> {t('history_detail_duration', { minutes: Math.floor(workout.duration / 60) })}</span>
                 </div>
@@ -50,12 +46,29 @@ const HistoryDetailModal: React.FC<{ workout: WorkoutHistory, onClose: () => voi
                             {exercise?.exerciseType === ExerciseType.STRENGTH && ex.sets && (
                                 <table className="w-full text-sm text-left mt-2">
                                     <thead className="text-slate-400"><tr><th className="p-2">{t('table_header_set')}</th><th className="p-2">{t('table_header_weight')}</th><th className="p-2">{t('table_header_reps')}</th></tr></thead>
-                                    <tbody className="text-slate-200">
-                                        {ex.sets.map((set, setIndex) => (
-                                            <tr key={setIndex} className="border-t border-slate-700">
-                                                <td className="p-2 font-bold">{setIndex + 1}</td><td className="p-2">{set.weight}</td><td className="p-2">{set.reps}</td>
-                                            </tr>
-                                        ))}
+                                    <tbody>
+                                        {(() => {
+                                            let workingSetIndex = 0;
+                                            let warmupSetIndex = 0;
+                                            return ex.sets.map((set, setIndex) => {
+                                                const isWarmup = !!set.isWarmup;
+                                                let label;
+                                                if(isWarmup) {
+                                                    warmupSetIndex++;
+                                                    label = `${t('warmup_set_label')} ${warmupSetIndex}`;
+                                                } else {
+                                                    workingSetIndex++;
+                                                    label = `${t('table_header_set')} ${workingSetIndex}`;
+                                                }
+                                                return (
+                                                    <tr key={setIndex} className={`border-t border-slate-700 ${isWarmup ? 'text-yellow-400' : 'text-slate-200'}`}>
+                                                        <td className={`p-2 font-bold ${!isWarmup && 'text-slate-300'}`}>{label}</td>
+                                                        <td className="p-2">{set.weight}</td>
+                                                        <td className="p-2">{set.reps}</td>
+                                                    </tr>
+                                                );
+                                            });
+                                        })()}
                                     </tbody>
                                 </table>
                             )}
@@ -112,7 +125,7 @@ const HistoryScreen: React.FC = () => {
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
                         <h2 className="text-xl font-bold text-electric-blue-400">{workout.planName}</h2>
-                        <div className="flex items-center space-x-4 text-sm text-slate-400 mt-1">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-400 mt-1">
                             <span className="flex items-center"><Calendar className="w-4 h-4 mr-1"/> {new Date(workout.date).toLocaleDateString()}</span>
                             <span className="flex items-center"><Clock className="w-4 h-4 mr-1"/> {t('history_detail_duration', { minutes: Math.floor(workout.duration / 60) })}</span>
                         </div>

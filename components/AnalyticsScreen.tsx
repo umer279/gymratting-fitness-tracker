@@ -1,15 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useMemo, useState } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { ExerciseType, ExerciseCategory, Exercise } from '../types';
@@ -103,27 +91,35 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ onOpenAiAssistant }) 
                 if (!exerciseDetails) return;
 
                 if (exerciseDetails.exerciseType === ExerciseType.STRENGTH && performedEx.sets) {
-                    let sessionMaxWeightSet = { weight: 0, reps: 0 };
-                    totalSets += performedEx.sets.length;
-                    categorySets[exerciseDetails.category] = (categorySets[exerciseDetails.category] || 0) + performedEx.sets.length;
-
-                    performedEx.sets.forEach(set => {
-                        const weight = set.weight || 0;
-                        const reps = set.reps || 0;
-                        totalVolume += weight * reps;
-                        if (weight > sessionMaxWeightSet.weight) {
-                            sessionMaxWeightSet = { weight, reps };
-                        }
-                    });
-
-                    const current = exercisePerformance[exerciseDetails.id] || { volume: 0, count: 0, maxWeightSet: { weight: 0, reps: 0, date: '' } };
-                    const newMaxWeightSet = sessionMaxWeightSet.weight > current.maxWeightSet.weight ? { ...sessionMaxWeightSet, date: workout.date } : current.maxWeightSet;
+                    const workingSets = performedEx.sets.filter(set => !set.isWarmup);
                     
-                    exercisePerformance[exerciseDetails.id] = {
-                        volume: current.volume + (totalVolume),
-                        count: current.count + 1,
-                        maxWeightSet: newMaxWeightSet,
-                    };
+                    if (workingSets.length > 0) {
+                        totalSets += workingSets.length;
+                        categorySets[exerciseDetails.category] = (categorySets[exerciseDetails.category] || 0) + workingSets.length;
+                
+                        let sessionVolume = 0;
+                        let sessionMaxWeightSet = { weight: 0, reps: 0 };
+                
+                        workingSets.forEach(set => {
+                            const weight = set.weight || 0;
+                            const reps = set.reps || 0;
+                            sessionVolume += weight * reps;
+                            if (weight > sessionMaxWeightSet.weight) {
+                                sessionMaxWeightSet = { weight, reps };
+                            }
+                        });
+                
+                        totalVolume += sessionVolume;
+                
+                        const current = exercisePerformance[exerciseDetails.id] || { volume: 0, count: 0, maxWeightSet: { weight: 0, reps: 0, date: '' } };
+                        const newMaxWeightSet = sessionMaxWeightSet.weight > current.maxWeightSet.weight ? { ...sessionMaxWeightSet, date: workout.date } : current.maxWeightSet;
+                        
+                        exercisePerformance[exerciseDetails.id] = {
+                            volume: current.volume + sessionVolume,
+                            count: current.count + 1,
+                            maxWeightSet: newMaxWeightSet,
+                        };
+                    }
                 } else if (exerciseDetails.exerciseType === ExerciseType.CARDIO && performedEx.cardioPerformance) {
                     const { duration, distance } = performedEx.cardioPerformance;
                     const current = cardioPerformance[exerciseDetails.id] || { count: 0, longestDuration: { value: 0, date: '' }, maxDistance: { value: 0, date: '' } };

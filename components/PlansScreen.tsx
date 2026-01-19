@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useRef } from 'react';
 import { useFitness } from '../context/FitnessContext';
 import { WorkoutPlan, PlanExercise, Exercise, ExerciseType } from '../types';
@@ -80,11 +75,12 @@ const PlanForm: React.FC<{ plan?: WorkoutPlan; onSave: (plan: Omit<WorkoutPlan, 
                         <div key={index} className="bg-slate-900 p-4 rounded-lg border border-slate-700 relative">
                            <button type="button" onClick={() => handleRemoveExercise(index)} className="absolute top-2 right-2 text-slate-400 hover:text-red-500"><X size={18}/></button>
                             <select value={pe.exerciseId} onChange={(e) => handleExerciseChange(index, 'exerciseId', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md mb-2">
-                                {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({t(ex.exerciseType as any)})</option>)}
+                                {exercises.map(ex => <option key={ex.id} value={ex.id}>{ex.name} ({t(`${ex.exerciseType.toLowerCase()}_type` as any)})</option>)}
                             </select>
                             
                             {exercise?.exerciseType === ExerciseType.STRENGTH && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                                    <input type="number" value={pe.numberOfWarmupSets || ''} onChange={e => handleExerciseChange(index, 'numberOfWarmupSets', parseInt(e.target.value))} placeholder={t('plan_exercise_warmup_sets_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                                     <input type="number" value={pe.numberOfSets || ''} onChange={e => handleExerciseChange(index, 'numberOfSets', parseInt(e.target.value))} placeholder={t('plan_exercise_sets_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                                     <input type="text" value={pe.repRange || ''} onChange={e => handleExerciseChange(index, 'repRange', e.target.value)} placeholder={t('plan_exercise_reps_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />
                                     <input type="number" value={pe.targetWeight || ''} onChange={e => handleExerciseChange(index, 'targetWeight', parseInt(e.target.value))} placeholder={t('plan_exercise_target_weight_placeholder')} className="w-full bg-slate-700 p-2 rounded-md" />

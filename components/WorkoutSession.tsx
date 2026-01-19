@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { WorkoutPlan, PerformedSet, PerformedExercise, PlanExercise, ExerciseType, Exercise } from '../types';
 import { useFitness } from '../context/FitnessContext';
@@ -60,6 +58,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   const [cardioSessionData, setCardioSessionData] = useState<Record<string, CardioSessionData>>({});
   const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
   const [startTime] = useState(Date.now());
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const [isEditingSession, setIsEditingSession] = useState(false);
   const [isSelectingExercise, setIsSelectingExercise] = useState(false);
@@ -70,14 +69,15 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     state.exercises.find(ex => ex.id === currentPlanExercise?.exerciseId),
     [state.exercises, currentPlanExercise]
   );
-
+  
   useEffect(() => {
     const initialStrengthData: Record<string, StrengthSessionSet[]> = {};
     const initialCardioData: Record<string, CardioSessionData> = {};
     sessionExercises.forEach(pe => {
       const exercise = state.exercises.find(ex => ex.id === pe.exerciseId);
       if (exercise?.exerciseType === ExerciseType.STRENGTH) {
-        initialStrengthData[pe.exerciseId] = Array(pe.numberOfSets || 3).fill({ weight: '', reps: '' });
+        const totalSets = (pe.numberOfSets || 3) + (pe.numberOfWarmupSets || 0);
+        initialStrengthData[pe.exerciseId] = Array(totalSets).fill({ weight: '', reps: '' });
       } else if (exercise?.exerciseType === ExerciseType.CARDIO) {
         initialCardioData[pe.exerciseId] = { minutes: String(Math.floor((pe.duration || 0) / 60)), seconds: String((pe.duration || 0) % 60), distance: '' };
       }
@@ -116,15 +116,21 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   }
 
   const handleFinishWorkout = async () => {
-    const duration = Math.floor((Date.now() - startTime) / 1000);
+    const totalWorkoutDuration = Math.floor((Date.now() - startTime) / 1000);
+
     const performedExercises: PerformedExercise[] = sessionExercises.map((planEx): PerformedExercise | null => {
         const exercise = state.exercises.find(ex => ex.id === planEx.exerciseId);
         const notes = sessionNotes[planEx.exerciseId];
         
         if (exercise?.exerciseType === ExerciseType.STRENGTH) {
             const setsData = strengthSessionData[planEx.exerciseId] || [];
+            const warmupSetsCount = planEx.numberOfWarmupSets || 0;
             const performedSets: PerformedSet[] = setsData
-              .map(s => ({ weight: parseFloat(s.weight) || 0, reps: parseInt(s.reps, 10) || 0 }))
+              .map((s, index) => ({ 
+                  weight: parseFloat(s.weight) || 0, 
+                  reps: parseInt(s.reps, 10) || 0,
+                  isWarmup: index < warmupSetsCount,
+              }))
               .filter(s => s.reps > 0);
             return (performedSets.length > 0 || notes) ? { exerciseId: planEx.exerciseId, sets: performedSets, notes } : null;
         }
@@ -134,10 +140,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
             if (totalSeconds > 0 || notes) {
               return {
                 exerciseId: planEx.exerciseId,
-                cardioPerformance: {
-                  duration: totalSeconds,
-                  distance: parseFloat(cardioData.distance) || undefined,
-                },
+                cardioPerformance: { duration: totalSeconds, distance: parseFloat(cardioData.distance) || undefined },
                 notes
               };
             }
@@ -150,7 +153,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
         planId: plan.id,
         planName: plan.name,
         date: new Date().toISOString(),
-        duration,
+        duration: totalWorkoutDuration,
         exercises: performedExercises,
       };
       await addWorkoutToHistory(newHistoryItem);
@@ -216,11 +219,11 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     setExerciseToReplaceIndex(null);
   };
 
-  const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setElapsedTime(elapsed);
     }, 1000);
     return () => clearInterval(timer);
   }, [startTime]);
@@ -238,6 +241,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
 
   const currentSets = strengthSessionData[currentExercise.id] || [];
   const currentCardio = cardioSessionData[currentExercise.id] || { minutes: '', seconds: '', distance: '' };
+  const numberOfWarmupSets = currentPlanExercise.numberOfWarmupSets || 0;
   
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col p-4 md:p-6 text-white">
@@ -261,7 +265,9 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
             <h1 className="text-2xl md:text-3xl font-bold truncate">{plan.name}</h1>
-            <p className="text-slate-400 font-mono text-lg">{formatTime(elapsedTime)}</p>
+            <div className="flex items-center space-x-4">
+                <p className="text-slate-400 font-mono text-lg">{formatTime(elapsedTime)}</p>
+            </div>
         </div>
         <button onClick={handleFinishWorkout} className="px-4 py-2 bg-red-600 font-bold rounded-lg hover:bg-red-500 transition-colors">{t('workout_session_finish_button')}</button>
       </div>
@@ -278,28 +284,14 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
             <p className="text-slate-400">{tCategory(currentExercise.category)}</p>
         </div>
         
-        {/* Previous Performance */}
-        {previousPerformance && (
-          <div className="bg-slate-800 p-3 rounded-lg mb-4 border border-slate-700">
-            <h3 className="flex items-center text-sm font-semibold text-slate-300 mb-2"><History size={14} className="mr-2"/> {t('workout_session_previous_performance_title')}</h3>
-            {previousPerformance.sets && previousPerformance.sets.length > 0 && (
-              <div className="text-xs text-slate-400 grid grid-cols-3 gap-1">
-                {previousPerformance.sets.map((s, i) => <span key={i} className="font-mono bg-slate-700/50 p-1 rounded">{s.weight}kg x {s.reps}</span>)}
-              </div>
-            )}
-            {previousPerformance.cardioPerformance && (
-              <p className="text-sm font-mono text-slate-300">
-                {formatDuration(previousPerformance.cardioPerformance.duration)}
-                {previousPerformance.cardioPerformance.distance ? ` / ${previousPerformance.cardioPerformance.distance}km` : ''}
-              </p>
-            )}
-          </div>
-        )}
-        
         {/* Plan Details */}
         <div className="bg-slate-800 p-3 rounded-lg mb-4 border border-slate-700">
             <h3 className="flex items-center text-sm font-semibold text-slate-300 mb-2"><Info size={14} className="mr-2"/> {t('workout_session_plan_details_title')}</h3>
-            {currentExercise.exerciseType === ExerciseType.STRENGTH && <p className="text-sm text-slate-300">{t('workout_session_plan_details_strength', { sets: currentPlanExercise.numberOfSets, reps: currentPlanExercise.repRange })}</p>}
+            {currentExercise.exerciseType === ExerciseType.STRENGTH && (
+                (currentPlanExercise.numberOfWarmupSets || 0) > 0 ?
+                    <p className="text-sm text-slate-300">{t('workout_session_plan_details_strength_with_warmup', { warmups: currentPlanExercise.numberOfWarmupSets, sets: currentPlanExercise.numberOfSets, reps: currentPlanExercise.repRange })}</p> :
+                    <p className="text-sm text-slate-300">{t('workout_session_plan_details_strength', { sets: currentPlanExercise.numberOfSets, reps: currentPlanExercise.repRange })}</p>
+            )}
             {currentExercise.exerciseType === ExerciseType.CARDIO && <p className="text-sm text-slate-300">{t('workout_session_plan_details_cardio', { duration: formatDuration(currentPlanExercise.duration || 0) })}</p>}
             {currentPlanExercise.notes && <p className="text-xs italic text-slate-400 mt-1">{currentPlanExercise.notes}</p>}
         </div>
@@ -307,18 +299,39 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
         {/* Live Input */}
         <div className="bg-slate-900 p-4 rounded-lg">
           {currentExercise.exerciseType === ExerciseType.STRENGTH && (
-            <div className="space-y-3">
-              {currentSets.map((set, setIndex) => (
-                <div key={setIndex} className="grid grid-cols-3 gap-2 items-center">
-                  <span className="font-bold text-slate-300">{t('table_header_set')} {setIndex + 1}</span>
-                  <input type="number" placeholder="kg" value={set.weight} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'weight', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
-                  <input type="number" placeholder={t('table_header_reps')} value={set.reps} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'reps', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
-                </div>
-              ))}
+            <div className="space-y-4">
+              {currentSets.map((set, setIndex) => {
+                const prevSet = previousPerformance?.sets?.[setIndex];
+                return (
+                  <div key={setIndex}>
+                    <div className="grid grid-cols-3 gap-2 items-center">
+                      <span className={`font-bold ${setIndex < numberOfWarmupSets ? 'text-yellow-400' : 'text-slate-300'}`}>
+                        {setIndex < numberOfWarmupSets 
+                            ? `${t('warmup_set_label')} ${setIndex + 1}`
+                            : `${t('table_header_set')} ${setIndex - numberOfWarmupSets + 1}`
+                        }
+                      </span>
+                      <input type="number" placeholder="kg" value={set.weight} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'weight', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
+                      <input type="number" placeholder={t('table_header_reps')} value={set.reps} onChange={e => handleStrengthChange(currentExercise.id, setIndex, 'reps', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />
+                    </div>
+                    {prevSet && (
+                        <p className="text-right text-xs text-slate-400 mt-1 pr-1 font-mono">
+                           {t('workout_session_previous_performance_title')}: {prevSet.weight}kg x {prevSet.reps} reps
+                        </p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
           {currentExercise.exerciseType === ExerciseType.CARDIO && (
             <div className="space-y-3">
+               {previousPerformance?.cardioPerformance && (
+                    <div className="text-center text-xs text-slate-400 mb-2 font-mono">
+                        {t('workout_session_previous_performance_title')}: {formatDuration(previousPerformance.cardioPerformance.duration)}
+                        {previousPerformance.cardioPerformance.distance ? ` / ${previousPerformance.cardioPerformance.distance}km` : ''}
+                    </div>
+                )}
               <div className="grid grid-cols-3 gap-2 items-center">
                 <label className="font-bold text-slate-300 text-sm">{t('workout_session_timer_elapsed')}</label>
                 <input type="number" placeholder="min" value={currentCardio.minutes} onChange={e => handleCardioChange(currentExercise.id, 'minutes', e.target.value)} className="w-full bg-slate-700 p-2 rounded-md text-center" />

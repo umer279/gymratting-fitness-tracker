@@ -32,6 +32,7 @@ export interface Exercise {
 export interface PlanExercise {
   exerciseId: string;
   // For Strength
+  numberOfWarmupSets?: number;
   numberOfSets?: number;
   repRange?: string;
   targetWeight?: number;
@@ -51,6 +52,7 @@ export interface WorkoutPlan {
 export interface PerformedSet {
   weight: number;
   reps: number;
+  isWarmup?: boolean;
 }
 
 export interface CardioPerformance {
