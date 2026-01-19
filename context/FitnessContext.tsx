@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -25,6 +27,7 @@ interface FitnessState {
   deferredPrompt: any | null;
   showIosInstallInstructions: boolean;
   showAndroidInstallInstructions: boolean;
+  needsPasswordUpdate: boolean;
 }
 
 type FitnessAction =
@@ -43,7 +46,8 @@ type FitnessAction =
   | { type: 'LOG_OUT' }
   | { type: 'SET_DEFERRED_PROMPT'; payload: any | null }
   | { type: 'SET_IOS_INSTALL_INSTRUCTIONS'; payload: boolean }
-  | { type: 'SET_ANDROID_INSTALL_INSTRUCTIONS'; payload: boolean };
+  | { type: 'SET_ANDROID_INSTALL_INSTRUCTIONS'; payload: boolean }
+  | { type: 'SET_NEEDS_PASSWORD_UPDATE'; payload: boolean };
 
 const initialState: FitnessState = {
   isLoading: true,
@@ -56,6 +60,7 @@ const initialState: FitnessState = {
   deferredPrompt: null,
   showIosInstallInstructions: false,
   showAndroidInstallInstructions: false,
+  needsPasswordUpdate: false,
 };
 
 const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessState => {
@@ -98,6 +103,8 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
             return state;
         }
         return { ...state, showAndroidInstallInstructions: action.payload };
+    case 'SET_NEEDS_PASSWORD_UPDATE':
+        return { ...state, needsPasswordUpdate: action.payload };
     default:
       return state;
   }
@@ -197,6 +204,12 @@ export const FitnessProvider: React.FC<{ children: ReactNode }> = ({ children })
         } else if (event === 'SIGNED_IN') {
             // When a user signs in (e.g., from the auth form), re-run the check to fetch their profile.
             checkSession();
+        } else if (event === 'PASSWORD_RECOVERY') {
+            // The user has followed a password recovery link.
+            // The session is now active, and we can guide them to update their password.
+            dispatch({ type: 'SET_NEEDS_PASSWORD_UPDATE', payload: true });
+            // Set the session so we can render the update password screen
+            dispatch({ type: 'SET_SESSION_AND_PROFILE', payload: { session, profile: null }});
         }
     });
 

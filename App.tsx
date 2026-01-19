@@ -5,6 +5,8 @@
 
 
 
+
+
 import React, { useState } from 'react';
 import { FitnessProvider, useFitness } from './context/FitnessContext';
 import PlansScreen from './components/PlansScreen';
@@ -18,6 +20,7 @@ import AuthScreen from './components/AuthScreen';
 import AiAssistantModal from './components/AiAssistantModal';
 import AnalyticsScreen from './components/AnalyticsScreen';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import UpdatePasswordScreen from './components/UpdatePasswordScreen';
 
 type Screen = 'DASHBOARD' | 'PLANS' | 'HISTORY' | 'EXERCISES' | 'ANALYTICS';
 
@@ -42,6 +45,10 @@ const AppContent: React.FC = () => {
             <p className="sr-only">{t('loading')}</p>
         </div>
     )
+  }
+  
+  if (state.needsPasswordUpdate && state.session) {
+      return <UpdatePasswordScreen />;
   }
 
   if (!state.session || !state.profile) {
