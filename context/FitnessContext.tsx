@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 import React, { createContext, useContext, useReducer, useEffect, ReactNode, useCallback } from 'react';
 import { Exercise, WorkoutPlan, WorkoutHistory, Profile } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -72,7 +63,14 @@ const fitnessReducer = (state: FitnessState, action: FitnessAction): FitnessStat
     case 'SET_USER_DATA':
       return { ...state, ...action.payload };
     case 'LOG_OUT':
-        return {...initialState, isLoading: false };
+        return {
+            ...initialState, 
+            isLoading: false,
+            // Preserve device-specific PWA state across logouts
+            deferredPrompt: state.deferredPrompt,
+            showIosInstallInstructions: state.showIosInstallInstructions,
+            showAndroidInstallInstructions: state.showAndroidInstallInstructions,
+        };
     case 'UPDATE_PROFILE_LOCALLY':
       return { ...state, profile: state.profile ? { ...state.profile, ...action.payload } : null };
     case 'ADD_EXERCISE':
