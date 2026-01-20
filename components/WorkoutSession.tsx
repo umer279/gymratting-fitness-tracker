@@ -13,6 +13,18 @@ interface WorkoutSessionProps {
 type StrengthSessionSet = { weight: string; reps: string };
 type CardioSessionData = { minutes: string; seconds: string; distance: string; };
 
+interface ActiveSessionState {
+  planId: string;
+  sessionExercises: PlanExercise[];
+  currentExerciseIndex: number;
+  strengthSessionData: Record<string, StrengthSessionSet[]>;
+  cardioSessionData: Record<string, CardioSessionData>;
+  sessionNotes: Record<string, string>;
+  startTime: number;
+}
+
+const SESSION_STORAGE_KEY = `gymratting_active_session`;
+
 const EditSessionModal: React.FC<{
     exercises: PlanExercise[];
     onReorder: (from: number, to: number) => void;
@@ -52,14 +64,55 @@ const EditSessionModal: React.FC<{
 const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   const { state, addWorkoutToHistory } = useFitness();
   const { t, tCategory } = useLanguage();
-  const [sessionExercises, setSessionExercises] = useState<PlanExercise[]>(plan.exercises);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [strengthSessionData, setStrengthSessionData] = useState<Record<string, StrengthSessionSet[]>>({});
-  const [cardioSessionData, setCardioSessionData] = useState<Record<string, CardioSessionData>>({});
-  const [sessionNotes, setSessionNotes] = useState<Record<string, string>>({});
-  const [startTime] = useState(Date.now());
-  const [elapsedTime, setElapsedTime] = useState(0);
 
+  const [sessionState, setSessionState] = useState<ActiveSessionState>(() => {
+    try {
+        const savedSessionJSON = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (savedSessionJSON) {
+            const savedSession = JSON.parse(savedSessionJSON) as ActiveSessionState;
+            if (savedSession.planId === plan.id) {
+                return savedSession;
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load saved session:", e);
+        localStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+
+    const initialStrengthData: Record<string, StrengthSessionSet[]> = {};
+    const initialCardioData: Record<string, CardioSessionData> = {};
+    plan.exercises.forEach(pe => {
+        const exercise = state.exercises.find(ex => ex.id === pe.exerciseId);
+        if (exercise?.exerciseType === ExerciseType.STRENGTH) {
+            const totalSets = (pe.numberOfSets || 3) + (pe.numberOfWarmupSets || 0);
+            initialStrengthData[pe.exerciseId] = Array(totalSets).fill({ weight: '', reps: '' });
+        } else if (exercise?.exerciseType === ExerciseType.CARDIO) {
+            initialCardioData[pe.exerciseId] = { minutes: String(Math.floor((pe.duration || 0) / 60)), seconds: String((pe.duration || 0) % 60), distance: '' };
+        }
+    });
+
+    return {
+        planId: plan.id,
+        sessionExercises: plan.exercises,
+        currentExerciseIndex: 0,
+        strengthSessionData: initialStrengthData,
+        cardioSessionData: initialCardioData,
+        sessionNotes: {},
+        startTime: Date.now(),
+    };
+  });
+
+  const { sessionExercises, currentExerciseIndex, strengthSessionData, cardioSessionData, sessionNotes, startTime } = sessionState;
+
+  useEffect(() => {
+    try {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(sessionState));
+    } catch (e) {
+        console.error("Failed to save session state:", e);
+    }
+  }, [sessionState]);
+
+  const [elapsedTime, setElapsedTime] = useState(0);
   const [isEditingSession, setIsEditingSession] = useState(false);
   const [isSelectingExercise, setIsSelectingExercise] = useState(false);
   const [exerciseToReplaceIndex, setExerciseToReplaceIndex] = useState<number | null>(null);
@@ -70,22 +123,6 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     [state.exercises, currentPlanExercise]
   );
   
-  useEffect(() => {
-    const initialStrengthData: Record<string, StrengthSessionSet[]> = {};
-    const initialCardioData: Record<string, CardioSessionData> = {};
-    sessionExercises.forEach(pe => {
-      const exercise = state.exercises.find(ex => ex.id === pe.exerciseId);
-      if (exercise?.exerciseType === ExerciseType.STRENGTH) {
-        const totalSets = (pe.numberOfSets || 3) + (pe.numberOfWarmupSets || 0);
-        initialStrengthData[pe.exerciseId] = Array(totalSets).fill({ weight: '', reps: '' });
-      } else if (exercise?.exerciseType === ExerciseType.CARDIO) {
-        initialCardioData[pe.exerciseId] = { minutes: String(Math.floor((pe.duration || 0) / 60)), seconds: String((pe.duration || 0) % 60), distance: '' };
-      }
-    });
-    setStrengthSessionData(initialStrengthData);
-    setCardioSessionData(initialCardioData);
-  }, [sessionExercises, state.exercises]);
-
   const getPreviousPerformance = (exerciseId: string): PerformedExercise | null => {
     for (const workout of state.history) {
       const performed = workout.exercises.find(e => e.exerciseId === exerciseId);
@@ -102,17 +139,33 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
   );
   
   const handleStrengthChange = (exerciseId: string, setIndex: number, field: 'weight' | 'reps', value: string) => {
-    const updatedSets = [...(strengthSessionData[exerciseId] || [])];
-    updatedSets[setIndex] = { ...updatedSets[setIndex], [field]: value };
-    setStrengthSessionData({ ...strengthSessionData, [exerciseId]: updatedSets });
+    setSessionState(current => {
+        const exerciseSets = [...(current.strengthSessionData[exerciseId] || [])];
+        exerciseSets[setIndex] = { ...exerciseSets[setIndex], [field]: value };
+        
+        const newStrengthData = {
+            ...current.strengthSessionData,
+            [exerciseId]: exerciseSets
+        };
+        return { ...current, strengthSessionData: newStrengthData };
+    });
   };
   
   const handleCardioChange = (exerciseId: string, field: keyof CardioSessionData, value: string) => {
-    setCardioSessionData({ ...cardioSessionData, [exerciseId]: { ...(cardioSessionData[exerciseId] || { minutes: '', seconds: '', distance: '' }), [field]: value }});
+    setSessionState(current => ({
+        ...current,
+        cardioSessionData: {
+            ...current.cardioSessionData,
+            [exerciseId]: { ...(current.cardioSessionData[exerciseId] || { minutes: '', seconds: '', distance: '' }), [field]: value }
+        }
+    }));
   }
 
   const handleNoteChange = (exerciseId: string, text: string) => {
-    setSessionNotes(prev => ({...prev, [exerciseId]: text}));
+    setSessionState(current => ({
+        ...current,
+        sessionNotes: { ...current.sessionNotes, [exerciseId]: text }
+    }));
   }
 
   const handleFinishWorkout = async () => {
@@ -158,6 +211,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
       };
       await addWorkoutToHistory(newHistoryItem);
     }
+    localStorage.removeItem(SESSION_STORAGE_KEY);
     onFinish();
   };
   
@@ -170,24 +224,55 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
 
   const handleReorderExercise = (fromIndex: number, toIndex: number) => {
     if (toIndex < 0 || toIndex >= sessionExercises.length) return;
-    const newList = [...sessionExercises];
-    const [movedItem] = newList.splice(fromIndex, 1);
-    newList.splice(toIndex, 0, movedItem);
-    setSessionExercises(newList);
-    if (currentExerciseIndex === fromIndex) {
-        setCurrentExerciseIndex(toIndex);
-    } else if (currentExerciseIndex > fromIndex && currentExerciseIndex <= toIndex) {
-        setCurrentExerciseIndex(currentExerciseIndex - 1);
-    } else if (currentExerciseIndex < fromIndex && currentExerciseIndex >= toIndex) {
-        setCurrentExerciseIndex(currentExerciseIndex + 1);
-    }
+    setSessionState(current => {
+        const newList = [...current.sessionExercises];
+        const [movedItem] = newList.splice(fromIndex, 1);
+        newList.splice(toIndex, 0, movedItem);
+        
+        let newCurrentIndex = current.currentExerciseIndex;
+        if (newCurrentIndex === fromIndex) {
+            newCurrentIndex = toIndex;
+        } else if (newCurrentIndex > fromIndex && newCurrentIndex <= toIndex) {
+            newCurrentIndex = newCurrentIndex - 1;
+        } else if (newCurrentIndex < fromIndex && newCurrentIndex >= toIndex) {
+            newCurrentIndex = newCurrentIndex + 1;
+        }
+
+        return {
+            ...current,
+            sessionExercises: newList,
+            currentExerciseIndex: newCurrentIndex,
+        };
+    });
   };
 
   const handleRemoveExercise = (indexToRemove: number) => {
-    setSessionExercises(prev => prev.filter((_, i) => i !== indexToRemove));
-    if (currentExerciseIndex >= indexToRemove) {
-        setCurrentExerciseIndex(prev => Math.max(0, prev - 1));
-    }
+    setSessionState(current => {
+        const exerciseToRemove = current.sessionExercises[indexToRemove];
+        const newSessionExercises = current.sessionExercises.filter((_, i) => i !== indexToRemove);
+        
+        const newStrengthData = { ...current.strengthSessionData };
+        delete newStrengthData[exerciseToRemove.exerciseId];
+        
+        const newCardioData = { ...current.cardioSessionData };
+        delete newCardioData[exerciseToRemove.exerciseId];
+        
+        const newNotes = { ...current.sessionNotes };
+        delete newNotes[exerciseToRemove.exerciseId];
+
+        const newIndex = current.currentExerciseIndex >= indexToRemove 
+            ? Math.max(0, current.currentExerciseIndex - 1)
+            : current.currentExerciseIndex;
+        
+        return {
+            ...current,
+            sessionExercises: newSessionExercises,
+            strengthSessionData: newStrengthData,
+            cardioSessionData: newCardioData,
+            sessionNotes: newNotes,
+            currentExerciseIndex: newIndex,
+        };
+    });
   };
   
   const handleStartReplaceExercise = (index: number) => {
@@ -208,10 +293,33 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
           newPlanExercise.duration = 600;
         }
         
-        setSessionExercises(prev => {
-          const newList = [...prev];
-          newList[exerciseToReplaceIndex] = newPlanExercise;
-          return newList;
+        setSessionState(current => {
+            const exerciseToReplace = current.sessionExercises[exerciseToReplaceIndex];
+            const newSessionExercises = [...current.sessionExercises];
+            newSessionExercises[exerciseToReplaceIndex] = newPlanExercise;
+
+            const newStrengthData = { ...current.strengthSessionData };
+            const newCardioData = { ...current.cardioSessionData };
+            const newNotes = { ...current.sessionNotes };
+
+            delete newStrengthData[exerciseToReplace.exerciseId];
+            delete newCardioData[exerciseToReplace.exerciseId];
+            delete newNotes[exerciseToReplace.exerciseId];
+
+            if (exercise.exerciseType === ExerciseType.STRENGTH) {
+                const totalSets = (newPlanExercise.numberOfSets || 3) + (newPlanExercise.numberOfWarmupSets || 0);
+                newStrengthData[newExerciseId] = Array(totalSets).fill({ weight: '', reps: '' });
+            } else {
+                newCardioData[newExerciseId] = { minutes: String(Math.floor((newPlanExercise.duration || 0) / 60)), seconds: String((newPlanExercise.duration || 0) % 60), distance: '' };
+            }
+            
+            return {
+                ...current,
+                sessionExercises: newSessionExercises,
+                strengthSessionData: newStrengthData,
+                cardioSessionData: newCardioData,
+                sessionNotes: newNotes,
+            };
         });
       }
     }
@@ -219,11 +327,10 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
     setExerciseToReplaceIndex(null);
   };
 
-
   useEffect(() => {
     const timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setElapsedTime(elapsed);
+      setElapsedTime(elapsed > 0 ? elapsed : 0);
     }, 1000);
     return () => clearInterval(timer);
   }, [startTime]);
@@ -355,7 +462,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
       
       {/* Navigation */}
       <div className="flex justify-between items-center mt-4 pt-4 border-t border-slate-700 flex-shrink-0">
-        <button onClick={() => setCurrentExerciseIndex(i => Math.max(0, i - 1))} disabled={currentExerciseIndex === 0} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
+        <button onClick={() => setSessionState(s => ({...s, currentExerciseIndex: Math.max(0, s.currentExerciseIndex - 1)}))} disabled={currentExerciseIndex === 0} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
           <ChevronLeft /> <span className="hidden sm:inline ml-2">{t('workout_session_nav_previous')}</span>
         </button>
         <button onClick={() => setIsEditingSession(true)} className="flex items-center text-sm p-3 rounded-lg bg-slate-800 hover:bg-slate-700">
@@ -366,7 +473,7 @@ const WorkoutSession: React.FC<WorkoutSessionProps> = ({ plan, onFinish }) => {
             <Check /><span className="hidden sm:inline ml-2">{t('workout_session_nav_finish')}</span>
           </button>
         ) : (
-          <button onClick={() => setCurrentExerciseIndex(i => Math.min(sessionExercises.length - 1, i + 1))} disabled={currentExerciseIndex === sessionExercises.length - 1} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
+          <button onClick={() => setSessionState(s => ({...s, currentExerciseIndex: Math.min(s.sessionExercises.length - 1, s.currentExerciseIndex + 1)}))} disabled={currentExerciseIndex === sessionExercises.length - 1} className="flex items-center p-3 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50">
             <span className="hidden sm:inline mr-2">{t('workout_session_nav_next')}</span><ChevronRight />
           </button>
         )}
